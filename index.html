@@ -1,0 +1,3538 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaBoard+ - Tableau de bord pharmacien itinérant</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        /* Variables CSS personnalisées selon la référence */
+        :root {
+            --primary-color: #0984e3;
+            --secondary-color: #74b9ff;
+            --accent-color: #ff6b35;
+            --accent-hover: #ff8c5a;
+            --bg-dark: #0a0a0a;
+            --bg-dark-secondary: #1a1a1a;
+            --bg-dark-tertiary: #2a2a2a;
+            --text-light: #f5f5f5;
+            --text-muted: #a0a0a0;
+            --border-color: #333;
+            --success-color: #00b894;
+            --danger-color: #d63031;
+            --warning-color: #fdcb6e;
+        }
+
+        /* Reset et base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+        }
+
+        /* Override Bootstrap pour thème sombre */
+        .form-control, .form-select {
+            background-color: var(--bg-dark-secondary);
+            border-color: var(--border-color);
+            color: var(--text-light);
+        }
+
+        .form-control:focus, .form-select:focus {
+            background-color: var(--bg-dark-secondary);
+            border-color: var(--primary-color);
+            color: var(--text-light);
+            box-shadow: 0 0 0 0.25rem rgba(9, 132, 227, 0.25);
+        }
+
+        .modal-content {
+            background-color: var(--bg-dark-secondary);
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-header {
+            border-bottom-color: var(--border-color);
+        }
+
+        .modal-footer {
+            border-top-color: var(--border-color);
+        }
+
+        .btn-close {
+            filter: invert(1);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background-color: var(--bg-dark-secondary);
+            min-height: 100vh;
+            transition: all 0.3s;
+            border-right: 1px solid var(--border-color);
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 250px;
+            z-index: 1000;
+        }
+
+        .sidebar .nav-link {
+            color: var(--text-muted);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .sidebar .nav-link:hover {
+            background-color: rgba(255, 107, 53, 0.1);
+            color: var(--accent-color);
+            transform: translateX(5px);
+        }
+
+        .sidebar .nav-link.active {
+            background-color: rgba(9, 132, 227, 0.2);
+            color: var(--primary-color);
+            border-left: 3px solid var(--primary-color);
+        }
+
+        /* Pharmacy Selector */
+        .pharmacy-selector {
+            background-color: rgba(255, 107, 53, 0.1);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 107, 53, 0.3);
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 250px;
+            padding: 2rem;
+            background-color: var(--bg-dark);
+            min-height: 100vh;
+        }
+
+        /* Stat Cards */
+        .stat-card {
+            background: var(--bg-dark-secondary);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            border: 1px solid var(--border-color);
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            border-color: var(--primary-color);
+            color: inherit;
+            text-decoration: none;
+        }
+
+        /* Contact Cards */
+        .contact-card {
+            background: var(--bg-dark-secondary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+            border: 1px solid var(--border-color);
+        }
+
+        .contact-card.favori {
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .contact-card.confidentiel {
+            background-color: rgba(255, 107, 53, 0.1);
+            border-color: var(--accent-color);
+        }
+
+        /* Quick Action Buttons */
+        .quick-action-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .quick-action-btn:hover {
+            background-color: var(--accent-hover);
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(255, 107, 53, 0.3);
+        }
+
+        /* Search Box */
+        .search-box {
+            position: relative;
+        }
+
+        .search-box .bi-search {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .search-box input {
+            padding-left: 2.5rem;
+        }
+
+        /* Medicine Search Box */
+        .medicine-search-box {
+            background-color: var(--bg-dark-secondary);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .medicine-search-box:focus-within {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(9, 132, 227, 0.1);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-dark-tertiary);
+            border-color: var(--border-color);
+            color: var(--text-light);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            border-color: var(--danger-color);
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            border-color: var(--warning-color);
+            color: var(--bg-dark);
+        }
+
+        /* Category Badges */
+        .category-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background-color: rgba(9, 132, 227, 0.2);
+            border: 1px solid var(--primary-color);
+            color: var(--secondary-color);
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            margin-right: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Note Tags */
+        .note-tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background-color: rgba(116, 185, 255, 0.2);
+            border: 1px solid var(--secondary-color);
+            color: var(--secondary-color);
+            border-radius: 1rem;
+            font-size: 0.75rem;
+        }
+
+        /* Tables */
+        .table-dark {
+            --bs-table-bg: var(--bg-dark-secondary);
+            --bs-table-border-color: var(--border-color);
+        }
+
+        /* Alerts */
+        .alert-info {
+            background-color: rgba(9, 132, 227, 0.1);
+            border-color: var(--primary-color);
+            color: var(--secondary-color);
+        }
+
+        .alert-success {
+            background-color: rgba(0, 184, 148, 0.1);
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+
+        .alert-warning {
+            background-color: rgba(253, 203, 110, 0.1);
+            border-color: var(--warning-color);
+            color: var(--warning-color);
+        }
+
+        .alert-danger {
+            background-color: rgba(214, 48, 49, 0.1);
+            border-color: var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                left: -250px;
+            }
+            
+            .sidebar.show {
+                left: 0;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .mobile-menu-btn {
+                position: fixed;
+                top: 1rem;
+                left: 1rem;
+                z-index: 1001;
+                background-color: var(--primary-color);
+                border: none;
+                color: white;
+                padding: 0.5rem;
+                border-radius: 0.25rem;
+            }
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--border-color);
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9998;
+            min-width: 300px;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .notification.error {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .notification.warning {
+            background-color: var(--warning-color);
+            color: var(--bg-dark);
+        }
+
+        .notification.info {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Hide elements */
+        .d-none {
+            display: none !important;
+        }
+
+        /* Utility classes */
+        .text-accent {
+            color: var(--accent-color);
+        }
+
+        .text-primary-custom {
+            color: var(--primary-color);
+        }
+
+        .text-secondary-custom {
+            color: var(--secondary-color);
+        }
+
+        .bg-dark-custom {
+            background-color: var(--bg-dark-secondary);
+        }
+
+        .border-custom {
+            border-color: var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner">
+        <div class="text-center">
+            <div class="spinner"></div>
+            <p class="mt-3">Chargement de PharmaBoard+...</p>
+        </div>
+    </div>
+
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-btn d-md-none" id="mobileMenuBtn">
+        <i class="bi bi-list"></i>
+    </button>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="p-3">
+            <!-- Header -->
+            <div class="text-center mb-4">
+                <h2 class="h4 text-primary-custom">
+                    <i class="bi bi-capsule me-2"></i>
+                    PharmaBoard+
+                </h2>
+                <small class="text-muted">v2.0</small>
+            </div>
+
+            <!-- Pharmacy Selector -->
+            <div class="pharmacy-selector">
+                <label class="form-label small text-muted">Pharmacie active</label>
+                <select class="form-select form-select-sm" id="pharmacySelect">
+                    <option value="">Sélectionner une pharmacie</option>
+                </select>
+                <div class="d-flex gap-2 mt-2">
+                    <button class="btn btn-primary btn-sm flex-fill" onclick="addPharmacy()">
+                        <i class="bi bi-plus"></i> Nouvelle
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deletePharmacy()" id="deletePharmacyBtn" style="display: none;">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <ul class="nav nav-pills flex-column">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#" onclick="showPage('dashboard')">
+                        <i class="bi bi-speedometer2 me-2"></i>
+                        Tableau de bord
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showPage('contacts')">
+                        <i class="bi bi-people me-2"></i>
+                        Contacts
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showPage('notes')">
+                        <i class="bi bi-journal-text me-2"></i>
+                        Notes
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showPage('messages')">
+                        <i class="bi bi-chat-square-text me-2"></i>
+                        Messages
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showPage('checklist')">
+                        <i class="bi bi-check-square me-2"></i>
+                        Checklist
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showPage('settings')">
+                        <i class="bi bi-gear me-2"></i>
+                        Paramètres
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="page">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-1">Tableau de bord</h1>
+                    <p class="text-muted">Vue d'ensemble de votre activité</p>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted" id="currentDate"></small>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6 col-lg-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted small mb-1">Contacts Favoris</p>
+                                <h3 class="h4 mb-0" id="statContactsFavoris">0</h3>
+                            </div>
+                            <i class="bi bi-star-fill text-warning fs-2"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted small mb-1">Notes</p>
+                                <h3 class="h4 mb-0" id="statNotes">0</h3>
+                            </div>
+                            <i class="bi bi-journal-text text-primary fs-2"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted small mb-1">Messages</p>
+                                <h3 class="h4 mb-0" id="statMessages">0</h3>
+                            </div>
+                            <i class="bi bi-chat-square-text text-success fs-2"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted small mb-1">Tâches</p>
+                                <h3 class="h4 mb-0" id="statTaches">0/0</h3>
+                                <small class="text-muted" id="statTachesPercent">0% complétées</small>
+                            </div>
+                            <i class="bi bi-check-square text-info fs-2"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <!-- Actions rapides -->
+                <div class="col-lg-6">
+                    <div class="stat-card h-100">
+                        <h3 class="h5 mb-3">
+                            <i class="bi bi-lightning-charge text-accent me-2"></i>
+                            Actions rapides
+                        </h3>
+                        <div class="d-grid gap-2">
+                            <button class="quick-action-btn" onclick="showPage('notes')">
+                                <i class="bi bi-plus me-2"></i>
+                                Note rapide
+                            </button>
+                            <button class="quick-action-btn" onclick="showPage('contacts')">
+                                <i class="bi bi-person-plus me-2"></i>
+                                Nouveau contact
+                            </button>
+                            <button class="quick-action-btn" onclick="showPage('messages')">
+                                <i class="bi bi-chat-plus me-2"></i>
+                                Nouveau message
+                            </button>
+                            <button class="quick-action-btn" onclick="showPage('checklist')">
+                                <i class="bi bi-check-square me-2"></i>
+                                Nouvelle checklist
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tâches en cours -->
+                <div class="col-lg-6">
+                    <div class="stat-card h-100">
+                        <h3 class="h5 mb-3">
+                            <i class="bi bi-clock text-warning me-2"></i>
+                            Tâches en cours
+                        </h3>
+                        <div id="recentTasks">
+                            <p class="text-muted text-center py-4">Aucune tâche en cours</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mt-1">
+                <!-- Contacts prioritaires -->
+                <div class="col-lg-6">
+                    <div class="stat-card h-100">
+                        <h3 class="h5 mb-3">
+                            <i class="bi bi-star-fill text-warning me-2"></i>
+                            Contacts prioritaires
+                        </h3>
+                        <div id="favoriteContacts">
+                            <p class="text-muted text-center py-4">Aucun contact prioritaire</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recherche de médicaments -->
+                <div class="col-lg-6">
+                    <div class="stat-card h-100">
+                        <h3 class="h5 mb-3">
+                            <i class="bi bi-search text-success me-2"></i>
+                            Recherche de médicaments
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="search-box">
+                                <input
+                                    type="text"
+                                    placeholder="Rechercher un médicament..."
+                                    class="form-control"
+                                    id="medicineSearch"
+                                    onkeyup="handleMedicineSearch(this.value)"
+                                />
+                                <i class="bi bi-search"></i>
+                            </div>
+                            
+                            <div id="medicineResults" style="max-height: 240px; overflow-y: auto;">
+                                <!-- Les résultats apparaîtront ici -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recherche de contacts par médicament -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="stat-card">
+                        <h3 class="h5 mb-3">
+                            <i class="bi bi-people text-primary me-2"></i>
+                            Recherche de contacts par médicament
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="search-box">
+                                <input
+                                    type="text"
+                                    placeholder="Rechercher un contact par médicament..."
+                                    class="form-control"
+                                    id="contactMedicineSearch"
+                                    onkeyup="handleContactMedicineSearch(this.value)"
+                                />
+                                <i class="bi bi-search"></i>
+                            </div>
+                            
+                            <div id="contactMedicineResults" class="row g-3 mt-3">
+                                <!-- Les résultats de contacts apparaîtront ici -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contacts Page -->
+        <div id="contactsPage" class="page d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-1">Contacts</h1>
+                    <p class="text-muted">Gérez vos contacts professionnels</p>
+                </div>
+                <button class="btn btn-primary" onclick="openContactModal()">
+                    <i class="bi bi-plus me-2"></i>
+                    Nouveau contact
+                </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="stat-card mb-4">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="search-box">
+                            <input type="text" class="form-control" placeholder="Rechercher un contact..." id="contactSearch">
+                            <i class="bi bi-search"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="contactFilter">
+                            <option value="">Tous les contacts</option>
+                            <option value="favoris">Favoris uniquement</option>
+                            <option value="confidentiels">Confidentiels</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="contactPharmacyFilter">
+                            <option value="">Toutes les pharmacies</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center text-muted">
+                            <i class="bi bi-funnel me-2"></i>
+                            <span id="contactCount">0 contact(s)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contacts List -->
+            <div id="contactsList">
+                <div class="text-center py-5">
+                    <i class="bi bi-people display-1 text-muted"></i>
+                    <h3 class="mt-3">Aucun contact</h3>
+                    <p class="text-muted">Commencez par ajouter votre premier contact</p>
+                    <button class="btn btn-primary" onclick="openContactModal()">
+                        <i class="bi bi-plus me-2"></i>
+                        Ajouter un contact
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes Page -->
+        <div id="notesPage" class="page d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-1">Notes</h1>
+                    <p class="text-muted">Gérez vos notes et documentations</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success" onclick="exportNotesPDF()">
+                        <i class="bi bi-download me-2"></i>
+                        Export PDF
+                    </button>
+                    <button class="btn btn-primary" onclick="openNoteModal()">
+                        <i class="bi bi-plus me-2"></i>
+                        Nouvelle note
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="stat-card mb-4">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="search-box">
+                            <input type="text" class="form-control" placeholder="Rechercher dans les notes..." id="noteSearch">
+                            <i class="bi bi-search"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="noteTagFilter">
+                            <option value="">Tous les tags</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="noteContactFilter">
+                            <option value="">Tous les contacts</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center text-muted">
+                            <i class="bi bi-funnel me-2"></i>
+                            <span id="noteCount">0 note(s)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes List -->
+            <div id="notesList">
+                <div class="text-center py-5">
+                    <i class="bi bi-journal-text display-1 text-muted"></i>
+                    <h3 class="mt-3">Aucune note</h3>
+                    <p class="text-muted">Commencez par créer votre première note</p>
+                    <button class="btn btn-primary" onclick="openNoteModal()">
+                        <i class="bi bi-plus me-2"></i>
+                        Créer une note
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages Page -->
+        <div id="messagesPage" class="page d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-1">Messages</h1>
+                    <p class="text-muted">Gérez vos communications</p>
+                </div>
+                <button class="btn btn-primary" onclick="openMessageModal()">
+                    <i class="bi bi-plus me-2"></i>
+                    Nouveau message
+                </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="stat-card mb-4">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="search-box">
+                            <input type="text" class="form-control" placeholder="Rechercher un message..." id="messageSearch">
+                            <i class="bi bi-search"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="messageTypeFilter">
+                            <option value="">Tous les types</option>
+                            <option value="email">Email</option>
+                            <option value="sms">SMS</option>
+                            <option value="note">Note interne</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="messageContactFilter">
+                            <option value="">Tous les contacts</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center text-muted">
+                            <i class="bi bi-funnel me-2"></i>
+                            <span id="messageCount">0 message(s)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages List -->
+            <div id="messagesList">
+                <div class="text-center py-5">
+                    <i class="bi bi-chat-square-text display-1 text-muted"></i>
+                    <h3 class="mt-3">Aucun message</h3>
+                    <p class="text-muted">Commencez par créer votre premier message</p>
+                    <button class="btn btn-primary" onclick="openMessageModal()">
+                        <i class="bi bi-plus me-2"></i>
+                        Nouveau message
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Checklist Page -->
+        <div id="checklistPage" class="page d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-1">Checklist</h1>
+                    <p class="text-muted">Gérez vos tâches et procédures</p>
+                </div>
+                <button class="btn btn-primary" onclick="openChecklistModal()">
+                    <i class="bi bi-plus me-2"></i>
+                    Nouvelle checklist
+                </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="stat-card mb-4">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <div class="search-box">
+                            <input type="text" class="form-control" placeholder="Rechercher..." id="checklistSearch">
+                            <i class="bi bi-search"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" id="checklistCategoryFilter">
+                            <option value="">Toutes les catégories</option>
+                            <option value="logistique">📦 Logistique</option>
+                            <option value="patient">👤 Patient</option>
+                            <option value="ordinateur">💻 Ordinateur</option>
+                            <option value="todo">✅ Todo</option>
+                            <option value="medecin">👨‍⚕️ Médecin</option>
+                            <option value="procedure">📋 Procédure</option>
+                            <option value="grossiste">🏢 Grossiste</option>
+                            <option value="magistrale">⚗️ Magistrale</option>
+                            <option value="tarification">💰 Tarification</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" id="checklistStatusFilter">
+                            <option value="">Tous les statuts</option>
+                            <option value="pending">En cours</option>
+                            <option value="completed">Complétés</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="checklistPharmacyFilter">
+                            <option value="">Toutes les pharmacies</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center text-muted">
+                            <i class="bi bi-funnel me-2"></i>
+                            <span id="checklistCount">0 item(s)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Checklist Items -->
+            <div id="checklistItems">
+                <div class="text-center py-5">
+                    <i class="bi bi-check-square display-1 text-muted"></i>
+                    <h3 class="mt-3">Aucune checklist</h3>
+                    <p class="text-muted">Commencez par créer votre première note checklist</p>
+                    <button class="btn btn-primary" onclick="openChecklistModal()">
+                        <i class="bi bi-plus me-2"></i>
+                        Nouvelle checklist
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Page -->
+        <div id="settingsPage" class="page d-none">
+            <div class="mb-4">
+                <h1 class="h2 mb-1">Paramètres</h1>
+                <p class="text-muted">Gérez les préférences et données de l'application</p>
+            </div>
+
+            <div class="row g-4">
+                <!-- Gestion des données -->
+                <div class="col-lg-6">
+                    <div class="stat-card h-100">
+                        <h3 class="h5 mb-3">
+                            <i class="bi bi-database text-primary me-2"></i>
+                            Gestion des données
+                        </h3>
+                        <p class="text-muted mb-4">Sauvegardez ou restaurez vos données PharmaBoard+</p>
+                        
+                        <div class="d-grid gap-3">
+                            <button class="btn btn-success" onclick="exportData()">
+                                <i class="bi bi-download me-2"></i>
+                                Exporter les données
+                            </button>
+                            <button class="btn btn-primary" onclick="importData()">
+                                <i class="bi bi-upload me-2"></i>
+                                Importer les données
+                            </button>
+                            <button class="btn btn-danger" onclick="clearAllData()">
+                                <i class="bi bi-trash me-2"></i>
+                                Effacer toutes les données
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Préférences -->
+                <div class="col-lg-6">
+                    <div class="stat-card h-100">
+                        <h3 class="h5 mb-3">
+                            <i class="bi bi-sliders text-accent me-2"></i>
+                            Préférences
+                        </h3>
+                        
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-dark-custom rounded mb-3">
+                            <div>
+                                <h6 class="mb-1">Sauvegarde automatique</h6>
+                                <small class="text-muted">Sauvegarde automatique toutes les 30 secondes</small>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="autoSaveToggle" checked>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-dark-custom rounded">
+                            <div>
+                                <h6 class="mb-1">Notifications</h6>
+                                <small class="text-muted">Afficher les notifications système</small>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="notificationsToggle" checked>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations -->
+            <div class="stat-card mt-4">
+                <h3 class="h5 mb-3">
+                    <i class="bi bi-info-circle text-info me-2"></i>
+                    Informations de l'application
+                </h3>
+                
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="text-center p-3 bg-dark-custom rounded">
+                            <div class="h4 text-primary mb-1" id="infoPharmacies">0</div>
+                            <small class="text-muted">Pharmacies</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 bg-dark-custom rounded">
+                            <div class="h4 text-success mb-1" id="infoContacts">0</div>
+                            <small class="text-muted">Contacts</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 bg-dark-custom rounded">
+                            <div class="h4 text-accent mb-1" id="infoNotes">0</div>
+                            <small class="text-muted">Notes</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 bg-dark-custom rounded">
+                            <div class="h4 text-warning mb-1" id="infoMessages">0</div>
+                            <small class="text-muted">Messages</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="border-top border-custom pt-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted"><strong>Version :</strong> PharmaBoard+ v2.0</small>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <small class="text-muted"><strong>Dernière sauvegarde :</strong> <span id="lastSave">-</span></small>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted"><strong>Checklist :</strong> <span id="infoChecklist">0 items (0 complétés)</span></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Contact Modal -->
+    <div class="modal fade" id="contactModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="contactModalTitle">Nouveau contact</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="contactForm">
+                        <input type="hidden" id="contactId">
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nom *</label>
+                                <input type="text" class="form-control" id="contactNom" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Prénom</label>
+                                <input type="text" class="form-control" id="contactPrenom">
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Rôle/Fonction</label>
+                                <input type="text" class="form-control" id="contactRole" placeholder="Ex: Pharmacien titulaire">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="contactEmail">
+                            </div>
+                        </div>
+
+                        <h6 class="mb-3">
+                            <i class="bi bi-telephone me-2"></i>
+                            Numéros de téléphone
+                        </h6>
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Téléphone fixe</label>
+                                <input type="tel" class="form-control" id="contactFixe">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">GSM</label>
+                                <input type="tel" class="form-control" id="contactGsm">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Bureau</label>
+                                <input type="tel" class="form-control" id="contactBureau">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Téléphone favori (affiché sur le tableau de bord)</label>
+                            <select class="form-select" id="contactFavoriPhone">
+                                <option value="">Aucun téléphone favori</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Médicament associé</label>
+                            <input type="text" class="form-control" id="contactMedicament" placeholder="Ex: Doliprane, Advil...">
+                            <div class="form-text">Permet de retrouver ce contact via la recherche de médicaments</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Adresse</label>
+                            <textarea class="form-control" id="contactAdresse" rows="2"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" id="contactNotes" rows="3" placeholder="Informations supplémentaires..."></textarea>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="contactFavori">
+                                    <label class="form-check-label">
+                                        <i class="bi bi-star text-warning me-1"></i>
+                                        Marquer comme favori
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="contactConfidentiel">
+                                    <label class="form-check-label">
+                                        <i class="bi bi-lock text-danger me-1"></i>
+                                        Contact confidentiel
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Pharmacie associée</label>
+                            <select class="form-select" id="contactPharmacie">
+                                <option value="">Toutes les pharmacies (contact global)</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveContact()">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Note Modal -->
+    <div class="modal fade" id="noteModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="noteModalTitle">Nouvelle note</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="noteForm">
+                        <input type="hidden" id="noteId">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Titre (optionnel)</label>
+                            <input type="text" class="form-control" id="noteTitre" placeholder="Titre de la note...">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Contenu *</label>
+                            <textarea class="form-control" id="noteContenu" rows="8" placeholder="Contenu de la note..." required></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Images (max 5, 1MB chacune)</label>
+                            <input type="file" class="form-control" id="noteImages" multiple accept="image/*">
+                            <div id="noteImagePreviews" class="mt-2"></div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Tags</label>
+                            <input type="text" class="form-control" id="noteTags" placeholder="Séparez les tags par des virgules (ex: urgent, commande, fournisseur)">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Associer à un contact</label>
+                            <select class="form-select" id="noteContact">
+                                <option value="">Aucun contact</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Pharmacie</label>
+                            <select class="form-select" id="notePharmacie">
+                                <option value="">Toutes les pharmacies</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveNote()">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Modal -->
+    <div class="modal fade" id="messageModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="messageModalTitle">Nouveau message</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="messageForm">
+                        <input type="hidden" id="messageId">
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Type de message *</label>
+                                <select class="form-select" id="messageType" required>
+                                    <option value="email">📧 Email</option>
+                                    <option value="sms">📱 SMS</option>
+                                    <option value="note">📝 Note interne</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" id="messageUrgent">
+                                    <label class="form-check-label">
+                                        <i class="bi bi-exclamation-triangle text-danger me-1"></i>
+                                        Message urgent
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Destinataires *</label>
+                            <div class="d-flex gap-3 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="destinataireType" id="destTous" value="tous">
+                                    <label class="form-check-label" for="destTous">
+                                        Tous les contacts
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="destinataireType" id="destFavoris" value="favoris">
+                                    <label class="form-check-label" for="destFavoris">
+                                        Contacts favoris
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="destinataireType" id="destSelection" value="selection" checked>
+                                    <label class="form-check-label" for="destSelection">
+                                        Sélection manuelle
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div id="contactSelection" class="border border-custom rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                                <!-- Contacts will be populated here -->
+                            </div>
+                            
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-bar-chart me-1"></i>
+                                    <span id="destinataireCount">0 destinataire(s) sélectionné(s)</span>
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Sujet *</label>
+                            <input type="text" class="form-control" id="messageSujet" placeholder="Sujet du message..." required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Contenu *</label>
+                            <textarea class="form-control" id="messageContenu" rows="8" placeholder="Contenu du message..." required></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Pharmacie</label>
+                            <select class="form-select" id="messagePharmacie">
+                                <option value="">Toutes les pharmacies</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveMessage()">Envoyer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checklist Modal -->
+    <div class="modal fade" id="checklistModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="checklistModalTitle">Nouvelle checklist</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="checklistForm">
+                        <input type="hidden" id="checklistId">
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label">Titre *</label>
+                                <input type="text" class="form-control" id="checklistTitre" placeholder="Titre de la checklist..." required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Catégorie *</label>
+                                <select class="form-select" id="checklistCategorie" required>
+                                    <option value="">Sélectionner...</option>
+                                    <option value="logistique">📦 Logistique</option>
+                                    <option value="patient">👤 Patient</option>
+                                    <option value="ordinateur">💻 Ordinateur</option>
+                                    <option value="todo">✅ Todo</option>
+                                    <option value="medecin">👨‍⚕️ Médecin</option>
+                                    <option value="procedure">📋 Procédure</option>
+                                    <option value="grossiste">🏢 Grossiste</option>
+                                    <option value="magistrale">⚗️ Magistrale</option>
+                                    <option value="tarification">💰 Tarification</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Contenu *</label>
+                            <textarea class="form-control" id="checklistContenu" rows="6" placeholder="Description détaillée..." required></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Images (max 5, 1MB chacune)</label>
+                            <input type="file" class="form-control" id="checklistImages" multiple accept="image/*">
+                            <div id="checklistImagePreviews" class="mt-2"></div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Tableau (optionnel)</label>
+                            <div class="bg-dark-custom p-3 rounded">
+                                <div class="d-flex gap-2 mb-3">
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="addTableColumn()">
+                                        <i class="bi bi-plus me-1"></i>
+                                        Ajouter colonne
+                                    </button>
+                                    <button type="button" class="btn btn-success btn-sm" onclick="addTableRow()">
+                                        <i class="bi bi-plus me-1"></i>
+                                        Ajouter ligne
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="clearTable()">
+                                        <i class="bi bi-trash me-1"></i>
+                                        Effacer tableau
+                                    </button>
+                                </div>
+                                <div id="checklistTable">
+                                    <p class="text-muted text-center py-3">
+                                        Aucun tableau. Cliquez sur "Ajouter colonne" pour commencer.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="checklistFavori">
+                                    <label class="form-check-label">
+                                        <i class="bi bi-star text-warning me-1"></i>
+                                        Marquer comme favori
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="checklistComplete">
+                                    <label class="form-check-label">
+                                        ✅ Marquer comme complété
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Pharmacie</label>
+                                <select class="form-select" id="checklistPharmacie">
+                                    <option value="">Toutes les pharmacies</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveChecklist()">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer"></div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Global variables
+        let currentPage = 'dashboard';
+        let currentPharmacy = '';
+        let data = {
+            pharmacies: [],
+            contacts: [],
+            notes: [],
+            messages: [],
+            checklistItems: [],
+            settings: {
+                autoSave: true,
+                notifications: true
+            }
+        };
+
+        // Base de données de médicaments (ajoutée depuis le fichier original)
+        const medicineDatabase = [
+            { name: 'Doliprane 1000mg', type: 'Comprimés', manufacturer: 'Sanofi', price: 3.50, available: true },
+            { name: 'Advil 400mg', type: 'Comprimés', manufacturer: 'Pfizer', price: 4.20, available: true },
+            { name: 'Aspirin 500mg', type: 'Comprimés', manufacturer: 'Bayer', price: 2.80, available: false },
+            { name: 'Paracetamol 500mg', type: 'Gélules', manufacturer: 'Biogaran', price: 2.10, available: true },
+            { name: 'Ibuprofen 200mg', type: 'Comprimés', manufacturer: 'Mylan', price: 3.90, available: true },
+            { name: 'Spasfon', type: 'Comprimés', manufacturer: 'Teva', price: 5.80, available: false },
+            { name: 'Smecta', type: 'Poudre', manufacturer: 'Ipsen', price: 6.10, available: true }
+        ];
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            updateCurrentDate();
+            setupEventListeners();
+            updateStats();
+            updatePharmacySelectors();
+            
+            // Hide loading spinner
+            setTimeout(() => {
+                document.getElementById('loadingSpinner').style.display = 'none';
+            }, 1000);
+
+            // Auto-save every 30 seconds
+            setInterval(() => {
+                if (data.settings.autoSave) {
+                    saveData();
+                }
+            }, 30000);
+        });
+
+        // Load data from localStorage
+        function loadData() {
+            try {
+                data.pharmacies = JSON.parse(localStorage.getItem('pharmaboard_pharmacies') || '[]');
+                data.contacts = JSON.parse(localStorage.getItem('pharmaboard_contacts') || '[]');
+                data.notes = JSON.parse(localStorage.getItem('pharmaboard_notes') || '[]');
+                data.messages = JSON.parse(localStorage.getItem('pharmaboard_messages') || '[]');
+                data.checklistItems = JSON.parse(localStorage.getItem('pharmaboard_checklist_items') || '[]');
+                data.settings = { ...data.settings, ...JSON.parse(localStorage.getItem('pharmaboard_settings') || '{}') };
+                currentPharmacy = localStorage.getItem('pharmaboard_current_pharmacy') || '';
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showNotification('Erreur lors du chargement des données', 'error');
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            try {
+                localStorage.setItem('pharmaboard_pharmacies', JSON.stringify(data.pharmacies));
+                localStorage.setItem('pharmaboard_contacts', JSON.stringify(data.contacts));
+                localStorage.setItem('pharmaboard_notes', JSON.stringify(data.notes));
+                localStorage.setItem('pharmaboard_messages', JSON.stringify(data.messages));
+                localStorage.setItem('pharmaboard_checklist_items', JSON.stringify(data.checklistItems));
+                localStorage.setItem('pharmaboard_settings', JSON.stringify(data.settings));
+                if (currentPharmacy) {
+                    localStorage.setItem('pharmaboard_current_pharmacy', currentPharmacy);
+                }
+                document.getElementById('lastSave').textContent = new Date().toLocaleString('fr-FR');
+            } catch (error) {
+                console.error('Error saving data:', error);
+                showNotification('Erreur lors de la sauvegarde', 'error');
+            }
+        }
+
+        // Fonction de recherche de médicaments (ajoutée depuis le fichier original)
+        function handleMedicineSearch(query) {
+            const resultsContainer = document.getElementById('medicineResults');
+            
+            if (!query || query.length < 2) {
+                resultsContainer.innerHTML = '';
+                return;
+            }
+
+            const filtered = medicineDatabase.filter(med => 
+                med.name.toLowerCase().includes(query.toLowerCase()) ||
+                med.manufacturer.toLowerCase().includes(query.toLowerCase())
+            );
+
+            if (filtered.length === 0) {
+                resultsContainer.innerHTML = '<div class="text-center py-3 text-muted">Aucun médicament trouvé</div>';
+                return;
+            }
+
+            resultsContainer.innerHTML = filtered.map(med => `
+                <div class="p-3 rounded mb-2 border ${med.available ? 'border-success bg-success bg-opacity-10' : 'border-danger bg-danger bg-opacity-10'}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-semibold">${med.name}</div>
+                            <div class="small text-muted">${med.manufacturer} • ${med.type}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold">${med.price.toFixed(2)}€</div>
+                            <span class="badge ${med.available ? 'bg-success' : 'bg-danger'}">
+                                ${med.available ? 'Disponible' : 'Rupture'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Fonction de recherche de contacts par médicament (ajoutée depuis le fichier original)
+        function handleContactMedicineSearch(query) {
+            const resultsContainer = document.getElementById('contactMedicineResults');
+            
+            if (!query || query.length < 2) {
+                resultsContainer.innerHTML = '';
+                return;
+            }
+
+            const filteredContacts = data.contacts.filter(contact => 
+                contact.medicament && contact.medicament.toLowerCase().includes(query.toLowerCase())
+            );
+
+            if (filteredContacts.length === 0) {
+                resultsContainer.innerHTML = '<div class="col-12"><div class="text-center py-4 text-muted">Aucun contact trouvé pour ce médicament</div></div>';
+                return;
+            }
+
+            resultsContainer.innerHTML = filteredContacts.map(contact => {
+                const favoritePhone = contact.telephones?.favori ? contact.telephones[contact.telephones.favori] : '';
+                return `
+                    <div class="col-md-6">
+                        <div class="contact-card ${contact.favori ? 'favori' : ''} ${contact.confidentiel ? 'confidentiel' : ''}">
+                            <div class="d-flex align-items-center mb-2">
+                                ${contact.favori ? '<i class="bi bi-star-fill text-warning me-1"></i>' : ''}
+                                ${contact.confidentiel ? '<i class="bi bi-lock-fill text-danger me-1"></i>' : ''}
+                                <h6 class="mb-0">${contact.nom} ${contact.prenom || ''}</h6>
+                            </div>
+                            
+                            ${contact.role ? `<p class="text-muted small mb-2">${contact.role}</p>` : ''}
+                            
+                            ${favoritePhone ? `
+                                <div class="text-primary-custom fw-medium mb-2 small">
+                                    <i class="bi bi-telephone me-1"></i>
+                                    ${favoritePhone}
+                                    <span class="text-muted ms-1">(${contact.telephones.favori})</span>
+                                </div>
+                            ` : ''}
+                            
+                            ${contact.email ? `<p class="small text-muted mb-2"><i class="bi bi-envelope me-1"></i> ${contact.email}</p>` : ''}
+                            
+                            <p class="small text-accent mb-2"><i class="bi bi-capsule me-1"></i> ${contact.medicament}</p>
+                            
+                            ${contact.notes ? `<p class="small text-muted">${contact.notes}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Mobile menu
+            document.getElementById('mobileMenuBtn').addEventListener('click', function() {
+                document.getElementById('sidebar').classList.toggle('show');
+            });
+
+            // Pharmacy selector
+            document.getElementById('pharmacySelect').addEventListener('change', function() {
+                currentPharmacy = this.value;
+                localStorage.setItem('pharmaboard_current_pharmacy', currentPharmacy);
+                document.getElementById('deletePharmacyBtn').style.display = currentPharmacy ? 'block' : 'none';
+                updateStats();
+                refreshCurrentPage();
+            });
+
+            // Search filters
+            document.getElementById('contactSearch')?.addEventListener('input', filterContacts);
+            document.getElementById('contactFilter')?.addEventListener('change', filterContacts);
+            document.getElementById('contactPharmacyFilter')?.addEventListener('change', filterContacts);
+
+            document.getElementById('noteSearch')?.addEventListener('input', filterNotes);
+            document.getElementById('noteTagFilter')?.addEventListener('change', filterNotes);
+            document.getElementById('noteContactFilter')?.addEventListener('change', filterNotes);
+
+            document.getElementById('messageSearch')?.addEventListener('input', filterMessages);
+            document.getElementById('messageTypeFilter')?.addEventListener('change', filterMessages);
+            document.getElementById('messageContactFilter')?.addEventListener('change', filterMessages);
+
+            document.getElementById('checklistSearch')?.addEventListener('input', filterChecklist);
+            document.getElementById('checklistCategoryFilter')?.addEventListener('change', filterChecklist);
+            document.getElementById('checklistStatusFilter')?.addEventListener('change', filterChecklist);
+            document.getElementById('checklistPharmacyFilter')?.addEventListener('change', filterChecklist);
+
+            // Settings toggles
+            document.getElementById('autoSaveToggle')?.addEventListener('change', function() {
+                data.settings.autoSave = this.checked;
+                saveData();
+                showNotification(`Sauvegarde automatique ${this.checked ? 'activée' : 'désactivée'}`);
+            });
+
+            document.getElementById('notificationsToggle')?.addEventListener('change', function() {
+                data.settings.notifications = this.checked;
+                saveData();
+                showNotification(`Notifications ${this.checked ? 'activées' : 'désactivées'}`);
+            });
+
+            // Message destinataire type
+            document.querySelectorAll('input[name="destinataireType"]').forEach(radio => {
+                radio.addEventListener('change', updateDestinataireSelection);
+            });
+
+            // Contact phone fields for favorite selection
+            ['contactFixe', 'contactGsm', 'contactBureau'].forEach(id => {
+                document.getElementById(id)?.addEventListener('input', updateFavoritePhoneOptions);
+            });
+
+            // File inputs for images
+            document.getElementById('noteImages')?.addEventListener('change', handleNoteImages);
+            document.getElementById('checklistImages')?.addEventListener('change', handleChecklistImages);
+        }
+
+        // Update current date
+        function updateCurrentDate() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('fr-FR', options);
+        }
+
+        // Show page
+        function showPage(page) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(p => p.classList.add('d-none'));
+            
+            // Show selected page
+            document.getElementById(page + 'Page').classList.remove('d-none');
+            
+            // Update navigation
+            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            document.querySelector(`[onclick="showPage('${page}')"]`).classList.add('active');
+            
+            currentPage = page;
+            
+            // Load page data
+            switch(page) {
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'contacts':
+                    loadContacts();
+                    break;
+                case 'notes':
+                    loadNotes();
+                    break;
+                case 'messages':
+                    loadMessages();
+                    break;
+                case 'checklist':
+                    loadChecklist();
+                    break;
+                case 'settings':
+                    loadSettings();
+                    break;
+            }
+
+            // Hide mobile menu
+            document.getElementById('sidebar').classList.remove('show');
+        }
+
+        // Refresh current page
+        function refreshCurrentPage() {
+            showPage(currentPage);
+        }
+
+        // Update statistics
+        function updateStats() {
+            const filteredContacts = getFilteredData(data.contacts);
+            const filteredNotes = getFilteredData(data.notes);
+            const filteredMessages = getFilteredData(data.messages);
+            const filteredChecklist = getFilteredData(data.checklistItems);
+
+            document.getElementById('statContactsFavoris').textContent = filteredContacts.filter(c => c.favori).length;
+            document.getElementById('statNotes').textContent = filteredNotes.length;
+            document.getElementById('statMessages').textContent = filteredMessages.length;
+            
+            const completedTasks = filteredChecklist.filter(c => c.complete).length;
+            const totalTasks = filteredChecklist.length;
+            document.getElementById('statTaches').textContent = `${completedTasks}/${totalTasks}`;
+            document.getElementById('statTachesPercent').textContent = `${totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}% complétées`;
+
+            // Update settings page info
+            document.getElementById('infoPharmacies').textContent = data.pharmacies.length;
+            document.getElementById('infoContacts').textContent = data.contacts.length;
+            document.getElementById('infoNotes').textContent = data.notes.length;
+            document.getElementById('infoMessages').textContent = data.messages.length;
+            document.getElementById('infoChecklist').textContent = `${data.checklistItems.length} items (${data.checklistItems.filter(c => c.complete).length} complétés)`;
+        }
+
+        // Get filtered data by current pharmacy
+        function getFilteredData(items) {
+            if (!currentPharmacy) return items;
+            return items.filter(item => !item.pharmacie || item.pharmacie === currentPharmacy);
+        }
+
+        // Update pharmacy selectors
+        function updatePharmacySelectors() {
+            const selectors = [
+                'pharmacySelect',
+                'contactPharmacie',
+                'notePharmacie', 
+                'messagePharmacie',
+                'checklistPharmacie',
+                'contactPharmacyFilter',
+                'checklistPharmacyFilter'
+            ];
+
+            selectors.forEach(selectorId => {
+                const selector = document.getElementById(selectorId);
+                if (!selector) return;
+
+                // Save current value
+                const currentValue = selector.value;
+                
+                // Clear options (except first one for filters)
+                if (selectorId.includes('Filter') || selectorId.includes('Pharmacie')) {
+                    selector.innerHTML = selector.firstElementChild.outerHTML;
+                } else {
+                    selector.innerHTML = '<option value="">Sélectionner une pharmacie</option>';
+                }
+
+                // Add pharmacy options
+                data.pharmacies.forEach(pharmacy => {
+                    const option = document.createElement('option');
+                    option.value = pharmacy.id;
+                    option.textContent = pharmacy.nom;
+                    selector.appendChild(option);
+                });
+
+                // Restore value
+                selector.value = currentValue;
+            });
+
+            // Update main pharmacy selector
+            document.getElementById('pharmacySelect').value = currentPharmacy;
+            document.getElementById('deletePharmacyBtn').style.display = currentPharmacy ? 'block' : 'none';
+        }
+
+        // Pharmacy management
+        function addPharmacy() {
+            const nom = prompt('Nom de la pharmacie:');
+            if (!nom?.trim()) return;
+
+            const adresse = prompt('Adresse de la pharmacie:') || '';
+            const newPharmacy = {
+                id: Date.now().toString(),
+                nom: nom.trim(),
+                adresse,
+                dateCreation: new Date().toISOString()
+            };
+
+            data.pharmacies.push(newPharmacy);
+            saveData();
+            updatePharmacySelectors();
+            showNotification('Pharmacie ajoutée avec succès');
+        }
+
+        function deletePharmacy() {
+            if (!currentPharmacy) return;
+            
+            const pharmacy = data.pharmacies.find(p => p.id === currentPharmacy);
+            if (!pharmacy) return;
+
+            if (confirm(`Êtes-vous sûr de vouloir supprimer la pharmacie "${pharmacy.nom}" ?`)) {
+                data.pharmacies = data.pharmacies.filter(p => p.id !== currentPharmacy);
+                currentPharmacy = '';
+                localStorage.removeItem('pharmaboard_current_pharmacy');
+                saveData();
+                updatePharmacySelectors();
+                updateStats();
+                showNotification('Pharmacie supprimée');
+            }
+        }
+
+        // Load dashboard
+        function loadDashboard() {
+            updateStats();
+            loadFavoriteContacts();
+            loadRecentTasks();
+        }
+
+        // Load favorite contacts for dashboard
+        function loadFavoriteContacts() {
+            const favoriteContacts = getFilteredData(data.contacts).filter(c => c.favori).slice(0, 6);
+            const container = document.getElementById('favoriteContacts');
+
+            if (favoriteContacts.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-4">Aucun contact prioritaire</p>';
+                return;
+            }
+
+            container.innerHTML = favoriteContacts.map(contact => {
+                const favoritePhone = contact.telephones?.favori ? contact.telephones[contact.telephones.favori] : '';
+                return `
+                    <div class="contact-card favori mb-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">${contact.nom} ${contact.prenom || ''}</div>
+                                ${contact.role ? `<div class="small text-muted">${contact.role}</div>` : ''}
+                                ${favoritePhone ? `
+                                    <div class="small text-primary-custom fw-medium mt-1">
+                                        <i class="bi bi-telephone me-1"></i>
+                                        ${favoritePhone}
+                                        <span class="text-muted ms-1">(${contact.telephones.favori})</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <i class="bi bi-star-fill text-warning"></i>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Load recent tasks for dashboard
+        function loadRecentTasks() {
+            const recentTasks = getFilteredData(data.checklistItems)
+                .filter(item => !item.complete)
+                .sort((a, b) => new Date(b.dateCreation) - new Date(a.dateCreation))
+                .slice(0, 3);
+
+            const container = document.getElementById('recentTasks');
+
+            if (recentTasks.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-4">Aucune tâche en cours</p>';
+                return;
+            }
+
+            container.innerHTML = recentTasks.map(task => `
+                <div class="p-3 bg-dark-custom rounded mb-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-medium">${task.titre}</span>
+                        <span class="badge bg-primary">${task.categorie}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load contacts page
+        function loadContacts() {
+            updateContactFilters();
+            filterContacts();
+        }
+
+        function updateContactFilters() {
+            // Update pharmacy filter
+            const pharmacyFilter = document.getElementById('contactPharmacyFilter');
+            const currentValue = pharmacyFilter.value;
+            pharmacyFilter.innerHTML = '<option value="">Toutes les pharmacies</option>';
+            data.pharmacies.forEach(pharmacy => {
+                const option = document.createElement('option');
+                option.value = pharmacy.id;
+                option.textContent = pharmacy.nom;
+                pharmacyFilter.appendChild(option);
+            });
+            pharmacyFilter.value = currentValue;
+        }
+
+        function filterContacts() {
+            const searchTerm = document.getElementById('contactSearch').value.toLowerCase();
+            const filterType = document.getElementById('contactFilter').value;
+            const pharmacyFilter = document.getElementById('contactPharmacyFilter').value;
+
+            let filteredContacts = getFilteredData(data.contacts);
+
+            // Apply filters
+            if (searchTerm) {
+                filteredContacts = filteredContacts.filter(contact => 
+                    contact.nom.toLowerCase().includes(searchTerm) ||
+                    (contact.prenom && contact.prenom.toLowerCase().includes(searchTerm)) ||
+                    (contact.role && contact.role.toLowerCase().includes(searchTerm)) ||
+                    (contact.medicament && contact.medicament.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            if (filterType === 'favoris') {
+                filteredContacts = filteredContacts.filter(contact => contact.favori);
+            } else if (filterType === 'confidentiels') {
+                filteredContacts = filteredContacts.filter(contact => contact.confidentiel);
+            }
+
+            if (pharmacyFilter) {
+                filteredContacts = filteredContacts.filter(contact => contact.pharmacie === pharmacyFilter);
+            }
+
+            // Update count
+            document.getElementById('contactCount').textContent = `${filteredContacts.length} contact(s)`;
+
+            // Render contacts
+            renderContacts(filteredContacts);
+        }
+
+        function renderContacts(contacts) {
+            const container = document.getElementById('contactsList');
+
+            if (contacts.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-people display-1 text-muted"></i>
+                        <h3 class="mt-3">Aucun contact</h3>
+                        <p class="text-muted">Commencez par ajouter votre premier contact</p>
+                        <button class="btn btn-primary" onclick="openContactModal()">
+                            <i class="bi bi-plus me-2"></i>
+                            Ajouter un contact
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Separate favorites and regular contacts
+            const favoriteContacts = contacts.filter(c => c.favori);
+            const regularContacts = contacts.filter(c => !c.favori);
+
+            let html = '';
+
+            // Render favorite contacts
+            if (favoriteContacts.length > 0) {
+                html += `
+                    <h3 class="h5 mb-3">
+                        <i class="bi bi-star-fill text-warning me-2"></i>
+                        Contacts favoris
+                    </h3>
+                    <div class="row g-3 mb-4">
+                        ${favoriteContacts.map(contact => renderContactCard(contact)).join('')}
+                    </div>
+                `;
+            }
+
+            // Render regular contacts
+            if (regularContacts.length > 0) {
+                html += `
+                    <h3 class="h5 mb-3">
+                        <i class="bi bi-people me-2"></i>
+                        Tous les contacts
+                    </h3>
+                    <div class="row g-3">
+                        ${regularContacts.map(contact => renderContactCard(contact)).join('')}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function renderContactCard(contact) {
+            const favoritePhone = contact.telephones?.favori ? contact.telephones[contact.telephones.favori] : '';
+            const cardClass = contact.favori ? 'contact-card favori' : (contact.confidentiel ? 'contact-card confidentiel' : 'contact-card');
+
+            return `
+                <div class="col-md-6 col-lg-4">
+                    <div class="${cardClass}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    ${contact.favori ? '<i class="bi bi-star-fill text-warning me-1"></i>' : ''}
+                                    ${contact.confidentiel ? '<i class="bi bi-lock-fill text-danger me-1"></i>' : ''}
+                                    <h6 class="mb-0">${contact.nom} ${contact.prenom || ''}</h6>
+                                </div>
+                                
+                                ${contact.role ? `<p class="text-muted small mb-2">${contact.role}</p>` : ''}
+                                
+                                <div class="mb-2">
+                                    ${contact.telephones?.fixe ? `
+                                        <div class="small ${contact.telephones.favori === 'fixe' ? 'text-primary-custom fw-medium' : 'text-muted'}">
+                                            <i class="bi bi-telephone me-1"></i>
+                                            Fixe: ${contact.telephones.fixe}
+                                            ${contact.telephones.favori === 'fixe' ? '<i class="bi bi-star-fill text-warning ms-1"></i>' : ''}
+                                        </div>
+                                    ` : ''}
+                                    ${contact.telephones?.gsm ? `
+                                        <div class="small ${contact.telephones.favori === 'gsm' ? 'text-primary-custom fw-medium' : 'text-muted'}">
+                                            <i class="bi bi-phone me-1"></i>
+                                            GSM: ${contact.telephones.gsm}
+                                            ${contact.telephones.favori === 'gsm' ? '<i class="bi bi-star-fill text-warning ms-1"></i>' : ''}
+                                        </div>
+                                    ` : ''}
+                                    ${contact.telephones?.bureau ? `
+                                        <div class="small ${contact.telephones.favori === 'bureau' ? 'text-primary-custom fw-medium' : 'text-muted'}">
+                                            <i class="bi bi-telephone me-1"></i>
+                                            Bureau: ${contact.telephones.bureau}
+                                            ${contact.telephones.favori === 'bureau' ? '<i class="bi bi-star-fill text-warning ms-1"></i>' : ''}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                
+                                ${contact.email ? `<p class="small text-muted mb-2"><i class="bi bi-envelope me-1"></i> ${contact.email}</p>` : ''}
+                                ${contact.medicament ? `<p class="small text-accent mb-2"><i class="bi bi-capsule me-1"></i> ${contact.medicament}</p>` : ''}
+                                ${contact.notes ? `<p class="small text-muted mt-2">${contact.notes}</p>` : ''}
+                            </div>
+                            
+                            <div class="d-flex flex-column gap-1">
+                                <button class="btn btn-sm btn-outline-primary" onclick="editContact('${contact.id}')" title="Modifier">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteContact('${contact.id}')" title="Supprimer">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Contact modal functions
+        function openContactModal(contactId = null) {
+            const modal = new bootstrap.Modal(document.getElementById('contactModal'));
+            const isEdit = contactId !== null;
+            
+            document.getElementById('contactModalTitle').textContent = isEdit ? 'Modifier le contact' : 'Nouveau contact';
+            
+            if (isEdit) {
+                const contact = data.contacts.find(c => c.id === contactId);
+                if (contact) {
+                    document.getElementById('contactId').value = contact.id;
+                    document.getElementById('contactNom').value = contact.nom;
+                    document.getElementById('contactPrenom').value = contact.prenom || '';
+                    document.getElementById('contactRole').value = contact.role || '';
+                    document.getElementById('contactEmail').value = contact.email || '';
+                    document.getElementById('contactFixe').value = contact.telephones?.fixe || '';
+                    document.getElementById('contactGsm').value = contact.telephones?.gsm || '';
+                    document.getElementById('contactBureau').value = contact.telephones?.bureau || '';
+                    document.getElementById('contactMedicament').value = contact.medicament || '';
+                    document.getElementById('contactAdresse').value = contact.adresse || '';
+                    document.getElementById('contactNotes').value = contact.notes || '';
+                    document.getElementById('contactFavori').checked = contact.favori;
+                    document.getElementById('contactConfidentiel').checked = contact.confidentiel;
+                    document.getElementById('contactPharmacie').value = contact.pharmacie || '';
+                    
+                    // Update favorite phone options after setting values
+                    setTimeout(updateFavoritePhoneOptions, 100);
+                    setTimeout(() => {
+                        document.getElementById('contactFavoriPhone').value = contact.telephones?.favori || '';
+                    }, 150);
+                }
+            } else {
+                document.getElementById('contactForm').reset();
+                document.getElementById('contactId').value = '';
+                document.getElementById('contactPharmacie').value = currentPharmacy;
+                updateFavoritePhoneOptions();
+            }
+            
+            updatePharmacySelectors();
+            modal.show();
+        }
+
+        function updateFavoritePhoneOptions() {
+            const fixe = document.getElementById('contactFixe').value.trim();
+            const gsm = document.getElementById('contactGsm').value.trim();
+            const bureau = document.getElementById('contactBureau').value.trim();
+            const favoriSelect = document.getElementById('contactFavoriPhone');
+            
+            const currentValue = favoriSelect.value;
+            favoriSelect.innerHTML = '<option value="">Aucun téléphone favori</option>';
+            
+            if (fixe) {
+                const option = document.createElement('option');
+                option.value = 'fixe';
+                option.textContent = `Fixe: ${fixe}`;
+                favoriSelect.appendChild(option);
+            }
+            
+            if (gsm) {
+                const option = document.createElement('option');
+                option.value = 'gsm';
+                option.textContent = `GSM: ${gsm}`;
+                favoriSelect.appendChild(option);
+            }
+            
+            if (bureau) {
+                const option = document.createElement('option');
+                option.value = 'bureau';
+                option.textContent = `Bureau: ${bureau}`;
+                favoriSelect.appendChild(option);
+            }
+            
+            // Restore previous value if still valid
+            if (currentValue && favoriSelect.querySelector(`option[value="${currentValue}"]`)) {
+                favoriSelect.value = currentValue;
+            }
+        }
+
+        function saveContact() {
+            const form = document.getElementById('contactForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const contactId = document.getElementById('contactId').value;
+            const isEdit = contactId !== '';
+
+            const contactData = {
+                nom: document.getElementById('contactNom').value.trim(),
+                prenom: document.getElementById('contactPrenom').value.trim(),
+                role: document.getElementById('contactRole').value.trim(),
+                telephones: {
+                    fixe: document.getElementById('contactFixe').value.trim(),
+                    gsm: document.getElementById('contactGsm').value.trim(),
+                    bureau: document.getElementById('contactBureau').value.trim(),
+                    favori: document.getElementById('contactFavoriPhone').value
+                },
+                email: document.getElementById('contactEmail').value.trim(),
+                adresse: document.getElementById('contactAdresse').value.trim(),
+                notes: document.getElementById('contactNotes').value.trim(),
+                medicament: document.getElementById('contactMedicament').value.trim(),
+                favori: document.getElementById('contactFavori').checked,
+                confidentiel: document.getElementById('contactConfidentiel').checked,
+                pharmacie: document.getElementById('contactPharmacie').value
+            };
+
+            if (isEdit) {
+                const index = data.contacts.findIndex(c => c.id === contactId);
+                if (index !== -1) {
+                    data.contacts[index] = { ...data.contacts[index], ...contactData };
+                }
+            } else {
+                const newContact = {
+                    id: Date.now().toString(),
+                    dateCreation: new Date().toISOString(),
+                    ...contactData
+                };
+                data.contacts.push(newContact);
+            }
+
+            saveData();
+            updateStats();
+            filterContacts();
+            
+            bootstrap.Modal.getInstance(document.getElementById('contactModal')).hide();
+            showNotification(isEdit ? 'Contact modifié' : 'Contact ajouté');
+        }
+
+        function editContact(contactId) {
+            openContactModal(contactId);
+        }
+
+        function deleteContact(contactId) {
+            const contact = data.contacts.find(c => c.id === contactId);
+            if (!contact) return;
+
+            if (confirm(`Êtes-vous sûr de vouloir supprimer le contact "${contact.nom}" ?`)) {
+                data.contacts = data.contacts.filter(c => c.id !== contactId);
+                saveData();
+                updateStats();
+                filterContacts();
+                showNotification('Contact supprimé');
+            }
+        }
+
+        // Load notes page
+        function loadNotes() {
+            updateNoteFilters();
+            filterNotes();
+        }
+
+        function updateNoteFilters() {
+            // Update tag filter
+            const tagFilter = document.getElementById('noteTagFilter');
+            const currentTagValue = tagFilter.value;
+            tagFilter.innerHTML = '<option value="">Tous les tags</option>';
+            
+            const allTags = new Set();
+            data.notes.forEach(note => {
+                if (note.tags) {
+                    note.tags.split(',').forEach(tag => allTags.add(tag.trim()));
+                }
+            });
+            
+            Array.from(allTags).sort().forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag;
+                option.textContent = tag;
+                tagFilter.appendChild(option);
+            });
+            tagFilter.value = currentTagValue;
+
+            // Update contact filter
+            const contactFilter = document.getElementById('noteContactFilter');
+            const currentContactValue = contactFilter.value;
+            contactFilter.innerHTML = '<option value="">Tous les contacts</option>';
+            
+            data.contacts.forEach(contact => {
+                const option = document.createElement('option');
+                option.value = contact.id;
+                option.textContent = `${contact.nom} ${contact.prenom || ''}`.trim();
+                contactFilter.appendChild(option);
+            });
+            contactFilter.value = currentContactValue;
+        }
+
+        function filterNotes() {
+            const searchTerm = document.getElementById('noteSearch').value.toLowerCase();
+            const tagFilter = document.getElementById('noteTagFilter').value;
+            const contactFilter = document.getElementById('noteContactFilter').value;
+
+            let filteredNotes = getFilteredData(data.notes);
+
+            // Apply filters
+            if (searchTerm) {
+                filteredNotes = filteredNotes.filter(note => 
+                    (note.titre && note.titre.toLowerCase().includes(searchTerm)) ||
+                    note.contenu.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            if (tagFilter) {
+                filteredNotes = filteredNotes.filter(note => 
+                    note.tags && note.tags.toLowerCase().includes(tagFilter.toLowerCase())
+                );
+            }
+
+            if (contactFilter) {
+                filteredNotes = filteredNotes.filter(note => note.contactAssocie === contactFilter);
+            }
+
+            // Update count
+            document.getElementById('noteCount').textContent = `${filteredNotes.length} note(s)`;
+
+            // Render notes
+            renderNotes(filteredNotes);
+        }
+
+        function renderNotes(notes) {
+            const container = document.getElementById('notesList');
+
+            if (notes.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-journal-text display-1 text-muted"></i>
+                        <h3 class="mt-3">Aucune note</h3>
+                        <p class="text-muted">Commencez par créer votre première note</p>
+                        <button class="btn btn-primary" onclick="openNoteModal()">
+                            <i class="bi bi-plus me-2"></i>
+                            Créer une note
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="row g-3">
+                    ${notes.map(note => renderNoteCard(note)).join('')}
+                </div>
+            `;
+        }
+
+        function renderNoteCard(note) {
+            const contactName = note.contactAssocie ? 
+                (() => {
+                    const contact = data.contacts.find(c => c.id === note.contactAssocie);
+                    return contact ? `${contact.nom} ${contact.prenom || ''}`.trim() : 'Contact inconnu';
+                })() : '';
+
+            return `
+                <div class="col-md-6 col-lg-4">
+                    <div class="stat-card h-100">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h6 class="mb-0">${note.titre || 'Note sans titre'}</h6>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary" onclick="editNote('${note.id}')" title="Modifier">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteNote('${note.id}')" title="Supprimer">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <p class="text-muted mb-3" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
+                            ${note.contenu}
+                        </p>
+
+                        ${note.images && note.images.length > 0 ? `
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="bi bi-image me-1 text-muted"></i>
+                                    <small class="text-muted">${note.images.length} image(s)</small>
+                                </div>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    ${note.images.slice(0, 3).map((img, index) => `
+                                        <img src="${img}" alt="Image ${index + 1}" 
+                                             class="rounded border" style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
+                                             onclick="window.open('${img}', '_blank')">
+                                    `).join('')}
+                                    ${note.images.length > 3 ? `
+                                        <div class="d-flex align-items-center justify-content-center rounded border bg-dark-custom text-muted" 
+                                             style="width: 50px; height: 50px; font-size: 0.75rem;">
+                                            +${note.images.length - 3}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${note.tags ? `
+                            <div class="mb-3">
+                                <div class="d-flex flex-wrap gap-1">
+                                    ${note.tags.split(',').map(tag => `
+                                        <span class="note-tag">${tag.trim()}</span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="d-flex justify-content-between align-items-center text-muted small">
+                            <span>${new Date(note.dateCreation).toLocaleDateString('fr-FR')}</span>
+                            ${contactName ? `<span class="text-primary-custom"><i class="bi bi-person me-1"></i>${contactName}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Note modal functions
+        function openNoteModal(noteId = null) {
+            const modal = new bootstrap.Modal(document.getElementById('noteModal'));
+            const isEdit = noteId !== null;
+            
+            document.getElementById('noteModalTitle').textContent = isEdit ? 'Modifier la note' : 'Nouvelle note';
+            
+            if (isEdit) {
+                const note = data.notes.find(n => n.id === noteId);
+                if (note) {
+                    document.getElementById('noteId').value = note.id;
+                    document.getElementById('noteTitre').value = note.titre || '';
+                    document.getElementById('noteContenu').value = note.contenu;
+                    document.getElementById('noteTags').value = note.tags || '';
+                    document.getElementById('noteContact').value = note.contactAssocie || '';
+                    document.getElementById('notePharmacie').value = note.pharmacie || '';
+                    
+                    // Handle images
+                    if (note.images && note.images.length > 0) {
+                        displayNoteImagePreviews(note.images);
+                    }
+                }
+            } else {
+                document.getElementById('noteForm').reset();
+                document.getElementById('noteId').value = '';
+                document.getElementById('notePharmacie').value = currentPharmacy;
+                document.getElementById('noteImagePreviews').innerHTML = '';
+            }
+            
+            updateNoteContactOptions();
+            updatePharmacySelectors();
+            modal.show();
+        }
+
+        function updateNoteContactOptions() {
+            const contactSelect = document.getElementById('noteContact');
+            const currentValue = contactSelect.value;
+            contactSelect.innerHTML = '<option value="">Aucun contact</option>';
+            
+            data.contacts.forEach(contact => {
+                const option = document.createElement('option');
+                option.value = contact.id;
+                option.textContent = `${contact.nom} ${contact.prenom || ''}`.trim();
+                contactSelect.appendChild(option);
+            });
+            
+            contactSelect.value = currentValue;
+        }
+
+        function handleNoteImages(event) {
+            const files = Array.from(event.target.files);
+            const maxFiles = 5;
+            const maxSize = 1024 * 1024; // 1MB
+
+            if (files.length > maxFiles) {
+                showNotification(`Maximum ${maxFiles} images autorisées`, 'warning');
+                return;
+            }
+
+            const validFiles = files.filter(file => {
+                if (file.size > maxSize) {
+                    showNotification(`Image trop volumineuse: ${file.name}`, 'warning');
+                    return false;
+                }
+                return true;
+            });
+
+            const imagePromises = validFiles.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            Promise.all(imagePromises).then(images => {
+                displayNoteImagePreviews(images);
+            });
+        }
+
+        function displayNoteImagePreviews(images) {
+            const container = document.getElementById('noteImagePreviews');
+            container.innerHTML = `
+                <div class="row g-2">
+                    ${images.map((img, index) => `
+                        <div class="col-4 col-md-3">
+                            <div class="position-relative">
+                                <img src="${img}" alt="Image ${index + 1}" class="img-fluid rounded border">
+                                <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle p-1"
+                                        onclick="removeNoteImage(${index})" style="width: 24px; height: 24px; font-size: 0.7rem;">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            // Store images in a temporary variable for saving
+            window.tempNoteImages = images;
+        }
+
+        function removeNoteImage(index) {
+            if (window.tempNoteImages) {
+                window.tempNoteImages.splice(index, 1);
+                displayNoteImagePreviews(window.tempNoteImages);
+            }
+        }
+
+        function saveNote() {
+            const form = document.getElementById('noteForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const noteId = document.getElementById('noteId').value;
+            const isEdit = noteId !== '';
+
+            const noteData = {
+                titre: document.getElementById('noteTitre').value.trim(),
+                contenu: document.getElementById('noteContenu').value.trim(),
+                tags: document.getElementById('noteTags').value.trim(),
+                contactAssocie: document.getElementById('noteContact').value,
+                pharmacie: document.getElementById('notePharmacie').value,
+                images: window.tempNoteImages || []
+            };
+
+            if (isEdit) {
+                const index = data.notes.findIndex(n => n.id === noteId);
+                if (index !== -1) {
+                    data.notes[index] = { ...data.notes[index], ...noteData };
+                }
+            } else {
+                const newNote = {
+                    id: Date.now().toString(),
+                    dateCreation: new Date().toISOString(),
+                    ...noteData
+                };
+                data.notes.push(newNote);
+            }
+
+            saveData();
+            updateStats();
+            filterNotes();
+            
+            bootstrap.Modal.getInstance(document.getElementById('noteModal')).hide();
+            showNotification(isEdit ? 'Note modifiée' : 'Note ajoutée');
+            
+            // Clean up temporary images
+            window.tempNoteImages = null;
+        }
+
+        function editNote(noteId) {
+            openNoteModal(noteId);
+        }
+
+        function deleteNote(noteId) {
+            const note = data.notes.find(n => n.id === noteId);
+            if (!note) return;
+
+            if (confirm('Êtes-vous sûr de vouloir supprimer cette note ?')) {
+                data.notes = data.notes.filter(n => n.id !== noteId);
+                saveData();
+                updateStats();
+                filterNotes();
+                showNotification('Note supprimée');
+            }
+        }
+
+        function exportNotesPDF() {
+            if (typeof jsPDF === 'undefined') {
+                showNotification('Erreur: jsPDF non disponible', 'error');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF();
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            let yPosition = 20;
+
+            // Get filtered notes
+            const searchTerm = document.getElementById('noteSearch').value.toLowerCase();
+            const tagFilter = document.getElementById('noteTagFilter').value;
+            const contactFilter = document.getElementById('noteContactFilter').value;
+
+            let filteredNotes = getFilteredData(data.notes);
+
+            if (searchTerm) {
+                filteredNotes = filteredNotes.filter(note => 
+                    (note.titre && note.titre.toLowerCase().includes(searchTerm)) ||
+                    note.contenu.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            if (tagFilter) {
+                filteredNotes = filteredNotes.filter(note => 
+                    note.tags && note.tags.toLowerCase().includes(tagFilter.toLowerCase())
+                );
+            }
+
+            if (contactFilter) {
+                filteredNotes = filteredNotes.filter(note => note.contactAssocie === contactFilter);
+            }
+
+            // Title
+            pdf.setFontSize(20);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('PharmaBoard+ - Export des Notes', pageWidth / 2, yPosition, { align: 'center' });
+            yPosition += 15;
+
+            // Export date
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth / 2, yPosition, { align: 'center' });
+            yPosition += 20;
+
+            // Notes
+            filteredNotes.forEach((note, index) => {
+                if (yPosition > pageHeight - 40) {
+                    pdf.addPage();
+                    yPosition = 20;
+                }
+
+                // Note title
+                pdf.setFontSize(14);
+                pdf.setFont('helvetica', 'bold');
+                const title = note.titre || `Note ${index + 1}`;
+                pdf.text(title, 20, yPosition);
+                yPosition += 10;
+
+                // Date and contact
+                pdf.setFontSize(9);
+                pdf.setFont('helvetica', 'normal');
+                const dateText = `Date: ${new Date(note.dateCreation).toLocaleDateString('fr-FR')}`;
+                pdf.text(dateText, 20, yPosition);
+                
+                if (note.contactAssocie) {
+                    const contact = data.contacts.find(c => c.id === note.contactAssocie);
+                    if (contact) {
+                        const contactText = `Contact: ${contact.nom} ${contact.prenom || ''}`.trim();
+                        pdf.text(contactText, 100, yPosition);
+                    }
+                }
+                yPosition += 8;
+
+                // Tags
+                if (note.tags) {
+                    pdf.setFontSize(8);
+                    pdf.text(`Tags: ${note.tags}`, 20, yPosition);
+                    yPosition += 8;
+                }
+
+                // Content
+                pdf.setFontSize(10);
+                pdf.setFont('helvetica', 'normal');
+                const lines = pdf.splitTextToSize(note.contenu, pageWidth - 40);
+                
+                lines.forEach(line => {
+                    if (yPosition > pageHeight - 20) {
+                        pdf.addPage();
+                        yPosition = 20;
+                    }
+                    pdf.text(line, 20, yPosition);
+                    yPosition += 5;
+                });
+
+                // Images mention
+                if (note.images && note.images.length > 0) {
+                    pdf.setFontSize(8);
+                    pdf.setFont('helvetica', 'italic');
+                    pdf.text(`[${note.images.length} image(s) associée(s)]`, 20, yPosition);
+                    yPosition += 8;
+                }
+
+                yPosition += 10; // Space between notes
+            });
+
+            // Save
+            const filename = `PharmaBoard_Notes_${new Date().toISOString().split('T')[0]}.pdf`;
+            pdf.save(filename);
+            showNotification('Notes exportées en PDF avec succès');
+        }
+
+        // Load messages page
+        function loadMessages() {
+            updateMessageFilters();
+            filterMessages();
+        }
+
+        function updateMessageFilters() {
+            // Update contact filter
+            const contactFilter = document.getElementById('messageContactFilter');
+            const currentValue = contactFilter.value;
+            contactFilter.innerHTML = '<option value="">Tous les contacts</option>';
+            
+            data.contacts.forEach(contact => {
+                const option = document.createElement('option');
+                option.value = contact.id;
+                option.textContent = `${contact.nom} ${contact.prenom || ''}`.trim();
+                contactFilter.appendChild(option);
+            });
+            contactFilter.value = currentValue;
+        }
+
+        function filterMessages() {
+            const searchTerm = document.getElementById('messageSearch').value.toLowerCase();
+            const typeFilter = document.getElementById('messageTypeFilter').value;
+            const contactFilter = document.getElementById('messageContactFilter').value;
+
+            let filteredMessages = getFilteredData(data.messages);
+
+            // Apply filters
+            if (searchTerm) {
+                filteredMessages = filteredMessages.filter(message => 
+                    message.sujet.toLowerCase().includes(searchTerm) ||
+                    message.contenu.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            if (typeFilter) {
+                filteredMessages = filteredMessages.filter(message => message.type === typeFilter);
+            }
+
+            if (contactFilter) {
+                filteredMessages = filteredMessages.filter(message => 
+                    message.destinataires.includes(contactFilter)
+                );
+            }
+
+            // Update count
+            document.getElementById('messageCount').textContent = `${filteredMessages.length} message(s)`;
+
+            // Render messages
+            renderMessages(filteredMessages);
+        }
+
+        function renderMessages(messages) {
+            const container = document.getElementById('messagesList');
+
+            if (messages.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-chat-square-text display-1 text-muted"></i>
+                        <h3 class="mt-3">Aucun message</h3>
+                        <p class="text-muted">Commencez par créer votre premier message</p>
+                        <button class="btn btn-primary" onclick="openMessageModal()">
+                            <i class="bi bi-plus me-2"></i>
+                            Nouveau message
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = messages.map(message => renderMessageCard(message)).join('');
+        }
+
+        function renderMessageCard(message) {
+            const getMessageTypeBadge = (type) => {
+                const badges = {
+                    'email': 'bg-primary',
+                    'sms': 'bg-success',
+                    'note': 'bg-secondary'
+                };
+                return badges[type] || 'bg-secondary';
+            };
+
+            const getMessageTypeLabel = (type) => {
+                const labels = {
+                    'email': '📧 Email',
+                    'sms': '📱 SMS',
+                    'note': '📝 Note interne'
+                };
+                return labels[type] || type;
+            };
+
+            const getDestinatairesDisplay = (message) => {
+                if (message.typeDestinataires === 'tous') {
+                    return 'Tous les contacts';
+                } else if (message.typeDestinataires === 'favoris') {
+                    return 'Contacts favoris';
+                } else {
+                    const contactNames = message.destinataires.map(id => {
+                        const contact = data.contacts.find(c => c.id === id);
+                        return contact ? `${contact.nom} ${contact.prenom || ''}`.trim() : 'Contact inconnu';
+                    });
+                    return contactNames.join(', ');
+                }
+            };
+
+            return `
+                <div class="stat-card mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <span class="badge ${getMessageTypeBadge(message.type)}">${getMessageTypeLabel(message.type)}</span>
+                                ${message.urgent ? '<span class="badge bg-danger">🚨 Urgent</span>' : ''}
+                            </div>
+                            
+                            <h5 class="mb-2">${message.sujet}</h5>
+                            
+                            <p class="text-muted mb-3" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
+                                ${message.contenu}
+                            </p>
+                            
+                            <div class="d-flex justify-content-between align-items-center text-muted small">
+                                <div class="d-flex gap-3">
+                                    <span><i class="bi bi-calendar me-1"></i>${new Date(message.dateCreation).toLocaleDateString('fr-FR')}</span>
+                                    <span><i class="bi bi-people me-1"></i>${getDestinatairesDisplay(message)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editMessage('${message.id}')" title="Modifier">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteMessage('${message.id}')" title="Supprimer">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Message modal functions
+        function openMessageModal(messageId = null) {
+            const modal = new bootstrap.Modal(document.getElementById('messageModal'));
+            const isEdit = messageId !== null;
+            
+            document.getElementById('messageModalTitle').textContent = isEdit ? 'Modifier le message' : 'Nouveau message';
+            
+            if (isEdit) {
+                const message = data.messages.find(m => m.id === messageId);
+                if (message) {
+                    document.getElementById('messageId').value = message.id;
+                    document.getElementById('messageType').value = message.type;
+                    document.getElementById('messageUrgent').checked = message.urgent;
+                    document.getElementById('messageSujet').value = message.sujet;
+                    document.getElementById('messageContenu').value = message.contenu;
+                    document.getElementById('messagePharmacie').value = message.pharmacie || '';
+                    
+                    // Set destinataire type
+                    document.querySelector(`input[name="destinataireType"][value="${message.typeDestinataires}"]`).checked = true;
+                    
+                    // Update contact selection
+                    updateDestinataireSelection();
+                    
+                    // Set selected contacts if manual selection
+                    if (message.typeDestinataires === 'selection') {
+                        message.destinataires.forEach(contactId => {
+                            const checkbox = document.querySelector(`#contactSelection input[value="${contactId}"]`);
+                            if (checkbox) checkbox.checked = true;
+                        });
+                    }
+                    
+                    updateDestinataireCount();
+                }
+            } else {
+                document.getElementById('messageForm').reset();
+                document.getElementById('messageId').value = '';
+                document.getElementById('messagePharmacie').value = currentPharmacy;
+                document.querySelector('input[name="destinataireType"][value="selection"]').checked = true;
+                updateDestinataireSelection();
+            }
+            
+            updatePharmacySelectors();
+            modal.show();
+        }
+
+        function updateDestinataireSelection() {
+            const selectedType = document.querySelector('input[name="destinataireType"]:checked').value;
+            const container = document.getElementById('contactSelection');
+            
+            if (selectedType === 'selection') {
+                // Show contact checkboxes
+                const contacts = getFilteredData(data.contacts);
+                container.innerHTML = `
+                    <div class="row g-2">
+                        ${contacts.map(contact => `
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="${contact.id}" 
+                                           id="contact_${contact.id}" onchange="updateDestinataireCount()">
+                                    <label class="form-check-label" for="contact_${contact.id}">
+                                        ${contact.favori ? '⭐ ' : ''}${contact.nom} ${contact.prenom || ''}
+                                        ${contact.role ? `<small class="text-muted d-block">${contact.role}</small>` : ''}
+                                    </label>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                container.innerHTML = '<p class="text-muted mb-0">Sélection automatique basée sur le type choisi</p>';
+            }
+            
+            updateDestinataireCount();
+        }
+
+        function updateDestinataireCount() {
+            const selectedType = document.querySelector('input[name="destinataireType"]:checked').value;
+            let count = 0;
+            
+            if (selectedType === 'tous') {
+                count = getFilteredData(data.contacts).length;
+            } else if (selectedType === 'favoris') {
+                count = getFilteredData(data.contacts).filter(c => c.favori).length;
+            } else {
+                count = document.querySelectorAll('#contactSelection input[type="checkbox"]:checked').length;
+            }
+            
+            document.getElementById('destinataireCount').textContent = `${count} destinataire(s) sélectionné(s)`;
+        }
+
+        function saveMessage() {
+            const form = document.getElementById('messageForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const messageId = document.getElementById('messageId').value;
+            const isEdit = messageId !== '';
+            const selectedType = document.querySelector('input[name="destinataireType"]:checked').value;
+
+            let destinataires = [];
+            if (selectedType === 'tous') {
+                destinataires = getFilteredData(data.contacts).map(c => c.id);
+            } else if (selectedType === 'favoris') {
+                destinataires = getFilteredData(data.contacts).filter(c => c.favori).map(c => c.id);
+            } else {
+                destinataires = Array.from(document.querySelectorAll('#contactSelection input[type="checkbox"]:checked'))
+                    .map(cb => cb.value);
+            }
+
+            if (destinataires.length === 0 && selectedType === 'selection') {
+                showNotification('Veuillez sélectionner au moins un destinataire', 'warning');
+                return;
+            }
+
+            const messageData = {
+                type: document.getElementById('messageType').value,
+                urgent: document.getElementById('messageUrgent').checked,
+                sujet: document.getElementById('messageSujet').value.trim(),
+                contenu: document.getElementById('messageContenu').value.trim(),
+                pharmacie: document.getElementById('messagePharmacie').value,
+                typeDestinataires: selectedType,
+                destinataires: destinataires
+            };
+
+            if (isEdit) {
+                const index = data.messages.findIndex(m => m.id === messageId);
+                if (index !== -1) {
+                    data.messages[index] = { ...data.messages[index], ...messageData };
+                }
+            } else {
+                const newMessage = {
+                    id: Date.now().toString(),
+                    dateCreation: new Date().toISOString(),
+                    ...messageData
+                };
+                data.messages.push(newMessage);
+            }
+
+            saveData();
+            updateStats();
+            filterMessages();
+            
+            bootstrap.Modal.getInstance(document.getElementById('messageModal')).hide();
+            showNotification(isEdit ? 'Message modifié' : 'Message envoyé');
+        }
+
+        function editMessage(messageId) {
+            openMessageModal(messageId);
+        }
+
+        function deleteMessage(messageId) {
+            const message = data.messages.find(m => m.id === messageId);
+            if (!message) return;
+
+            if (confirm('Êtes-vous sûr de vouloir supprimer ce message ?')) {
+                data.messages = data.messages.filter(m => m.id !== messageId);
+                saveData();
+                updateStats();
+                filterMessages();
+                showNotification('Message supprimé');
+            }
+        }
+
+        // Load checklist page
+        function loadChecklist() {
+            updateChecklistFilters();
+            filterChecklist();
+        }
+
+        function updateChecklistFilters() {
+            // Update pharmacy filter
+            const pharmacyFilter = document.getElementById('checklistPharmacyFilter');
+            const currentValue = pharmacyFilter.value;
+            pharmacyFilter.innerHTML = '<option value="">Toutes les pharmacies</option>';
+            data.pharmacies.forEach(pharmacy => {
+                const option = document.createElement('option');
+                option.value = pharmacy.id;
+                option.textContent = pharmacy.nom;
+                pharmacyFilter.appendChild(option);
+            });
+            pharmacyFilter.value = currentValue;
+        }
+
+        function filterChecklist() {
+            const searchTerm = document.getElementById('checklistSearch').value.toLowerCase();
+            const categoryFilter = document.getElementById('checklistCategoryFilter').value;
+            const statusFilter = document.getElementById('checklistStatusFilter').value;
+            const pharmacyFilter = document.getElementById('checklistPharmacyFilter').value;
+
+            let filteredItems = getFilteredData(data.checklistItems);
+
+            // Apply filters
+            if (searchTerm) {
+                filteredItems = filteredItems.filter(item => 
+                    item.titre.toLowerCase().includes(searchTerm) ||
+                    item.contenu.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            if (categoryFilter) {
+                filteredItems = filteredItems.filter(item => item.categorie === categoryFilter);
+            }
+
+            if (statusFilter === 'completed') {
+                filteredItems = filteredItems.filter(item => item.complete);
+            } else if (statusFilter === 'pending') {
+                filteredItems = filteredItems.filter(item => !item.complete);
+            }
+
+            if (pharmacyFilter) {
+                filteredItems = filteredItems.filter(item => item.pharmacie === pharmacyFilter);
+            }
+
+            // Update count
+            document.getElementById('checklistCount').textContent = `${filteredItems.length} item(s)`;
+
+            // Render checklist items
+            renderChecklistItems(filteredItems);
+        }
+
+        function renderChecklistItems(items) {
+            const container = document.getElementById('checklistItems');
+
+            if (items.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-check-square display-1 text-muted"></i>
+                        <h3 class="mt-3">Aucune checklist</h3>
+                        <p class="text-muted">Commencez par créer votre première note checklist</p>
+                        <button class="btn btn-primary" onclick="openChecklistModal()">
+                            <i class="bi bi-plus me-2"></i>
+                            Nouvelle checklist
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Separate favorites and regular items
+            const favoriteItems = items.filter(item => item.favori);
+            const regularItems = items.filter(item => !item.favori);
+
+            let html = '';
+
+            // Render favorite items
+            if (favoriteItems.length > 0) {
+                html += `
+                    <h3 class="h5 mb-3">
+                        <i class="bi bi-star-fill text-warning me-2"></i>
+                        Favoris
+                    </h3>
+                    <div class="mb-4">
+                        ${favoriteItems.map(item => renderChecklistCard(item)).join('')}
+                    </div>
+                `;
+            }
+
+            // Group regular items by category
+            const categorizedItems = {};
+            regularItems.forEach(item => {
+                if (!categorizedItems[item.categorie]) {
+                    categorizedItems[item.categorie] = [];
+                }
+                categorizedItems[item.categorie].push(item);
+            });
+
+            // Render categorized items
+            Object.entries(categorizedItems).forEach(([category, categoryItems]) => {
+                const categoryInfo = getCategoryInfo(category);
+                html += `
+                    <h3 class="h5 mb-3 d-flex align-items-center">
+                        <span style="color: ${categoryInfo.color};">
+                            ${categoryInfo.icon} ${categoryInfo.name}
+                        </span>
+                        <span class="badge bg-secondary ms-3">${categoryItems.length}</span>
+                    </h3>
+                    <div class="mb-4">
+                        ${categoryItems.map(item => renderChecklistCard(item)).join('')}
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function getCategoryInfo(category) {
+            const categories = {
+                'logistique': { name: 'Logistique', icon: '📦', color: '#e74c3c' },
+                'patient': { name: 'Patient', icon: '👤', color: '#3498db' },
+                'ordinateur': { name: 'Ordinateur', icon: '💻', color: '#9b59b6' },
+                'todo': { name: 'Todo', icon: '✅', color: '#f39c12' },
+                'medecin': { name: 'Médecin', icon: '👨‍⚕️', color: '#2ecc71' },
+                'procedure': { name: 'Procédure', icon: '📋', color: '#34495e' },
+                'grossiste': { name: 'Grossiste', icon: '🏢', color: '#e67e22' },
+                'magistrale': { name: 'Magistrale', icon: '⚗️', color: '#1abc9c' },
+                'tarification': { name: 'Tarification', icon: '💰', color: '#95a5a6' }
+            };
+            return categories[category] || { name: category, icon: '📋', color: '#333' };
+        }
+
+        function renderChecklistCard(item) {
+            const categoryInfo = getCategoryInfo(item.categorie);
+            
+            return `
+                <div class="stat-card mb-3 ${item.favori ? 'border-warning' : ''} ${item.complete ? 'opacity-75' : ''}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                ${item.favori ? '<i class="bi bi-star-fill text-warning"></i>' : ''}
+                                <h6 class="mb-0">${item.titre}</h6>
+                                <span class="badge" style="background-color: ${categoryInfo.color};">
+                                    ${categoryInfo.icon} ${categoryInfo.name}
+                                </span>
+                            </div>
+                            
+                            <p class="text-muted mb-3">${item.contenu}</p>
+                            
+                            ${item.images && item.images.length > 0 ? `
+                                <div class="mb-3">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="bi bi-image me-1 text-muted"></i>
+                                        <small class="text-muted">${item.images.length} image(s)</small>
+                                    </div>
+                                    <div class="d-flex gap-1">
+                                        ${item.images.slice(0, 3).map((img, index) => `
+                                            <img src="${img}" alt="Image ${index + 1}" 
+                                                 class="rounded border" style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
+                                                 onclick="window.open('${img}', '_blank')">
+                                        `).join('')}
+                                        ${item.images.length > 3 ? `
+                                            <div class="d-flex align-items-center justify-content-center rounded border bg-dark-custom text-muted" 
+                                                 style="width: 50px; height:  50px; font-size: 0.75rem;">
+                                                +${item.images.length - 3}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${item.tableau && item.tableau.colonnes.length > 0 ? `
+                                <div class="mb-3">
+                                    <div class="text-muted small mb-2">📊 Tableau inclus</div>
+                                    <div class="bg-dark-custom p-2 rounded small">
+                                        <strong>Colonnes:</strong> ${item.tableau.colonnes.join(', ')}<br>
+                                        <strong>Lignes:</strong> ${item.tableau.lignes.length}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="d-flex justify-content-between align-items-center text-muted small">
+                                <span><i class="bi bi-calendar me-1"></i>${new Date(item.dateCreation).toLocaleDateString('fr-FR')}</span>
+                                <span class="${item.complete ? 'text-success' : 'text-primary'}">
+                                    ${item.complete ? '✅ Complété' : '⏳ En cours'}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex flex-column gap-1 ms-3">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editChecklistItem('${item.id}')" title="Modifier">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm ${item.complete ? 'btn-outline-warning' : 'btn-outline-success'}" 
+                                    onclick="toggleChecklistComplete('${item.id}')" 
+                                    title="${item.complete ? 'Marquer comme en cours' : 'Marquer comme complété'}">
+                                <i class="bi bi-${item.complete ? 'arrow-clockwise' : 'check'}"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteChecklistItem('${item.id}')" title="Supprimer">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Checklist modal functions
+        function openChecklistModal(itemId = null) {
+            const modal = new bootstrap.Modal(document.getElementById('checklistModal'));
+            const isEdit = itemId !== null;
+            
+            document.getElementById('checklistModalTitle').textContent = isEdit ? 'Modifier la checklist' : 'Nouvelle checklist';
+            
+            if (isEdit) {
+                const item = data.checklistItems.find(i => i.id === itemId);
+                if (item) {
+                    document.getElementById('checklistId').value = item.id;
+                    document.getElementById('checklistTitre').value = item.titre;
+                    document.getElementById('checklistCategorie').value = item.categorie;
+                    document.getElementById('checklistContenu').value = item.contenu;
+                    document.getElementById('checklistFavori').checked = item.favori;
+                    document.getElementById('checklistComplete').checked = item.complete;
+                    document.getElementById('checklistPharmacie').value = item.pharmacie || '';
+                    
+                    // Handle images
+                    if (item.images && item.images.length > 0) {
+                        displayChecklistImagePreviews(item.images);
+                    }
+                    
+                    // Handle table
+                    if (item.tableau && item.tableau.colonnes.length > 0) {
+                        window.checklistTableData = item.tableau;
+                        renderChecklistTable();
+                    }
+                }
+            } else {
+                document.getElementById('checklistForm').reset();
+                document.getElementById('checklistId').value = '';
+                document.getElementById('checklistPharmacie').value = currentPharmacy;
+                document.getElementById('checklistImagePreviews').innerHTML = '';
+                document.getElementById('checklistTable').innerHTML = '<p class="text-muted text-center py-3">Aucun tableau. Cliquez sur "Ajouter colonne" pour commencer.</p>';
+                window.checklistTableData = { colonnes: [], lignes: [] };
+            }
+            
+            updatePharmacySelectors();
+            modal.show();
+        }
+
+        function handleChecklistImages(event) {
+            const files = Array.from(event.target.files);
+            const maxFiles = 5;
+            const maxSize = 1024 * 1024; // 1MB
+
+            if (files.length > maxFiles) {
+                showNotification(`Maximum ${maxFiles} images autorisées`, 'warning');
+                return;
+            }
+
+            const validFiles = files.filter(file => {
+                if (file.size > maxSize) {
+                    showNotification(`Image trop volumineuse: ${file.name}`, 'warning');
+                    return false;
+                }
+                return true;
+            });
+
+            const imagePromises = validFiles.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            Promise.all(imagePromises).then(images => {
+                displayChecklistImagePreviews(images);
+            });
+        }
+
+        function displayChecklistImagePreviews(images) {
+            const container = document.getElementById('checklistImagePreviews');
+            container.innerHTML = `
+                <div class="row g-2">
+                    ${images.map((img, index) => `
+                        <div class="col-4 col-md-3">
+                            <div class="position-relative">
+                                <img src="${img}" alt="Image ${index + 1}" class="img-fluid rounded border">
+                                <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle p-1"
+                                        onclick="removeChecklistImage(${index})" style="width: 24px; height: 24px; font-size: 0.7rem;">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            // Store images in a temporary variable for saving
+            window.tempChecklistImages = images;
+        }
+
+        function removeChecklistImage(index) {
+            if (window.tempChecklistImages) {
+                window.tempChecklistImages.splice(index, 1);
+                displayChecklistImagePreviews(window.tempChecklistImages);
+            }
+        }
+
+        // Table functions
+        function addTableColumn() {
+            const columnName = prompt('Nom de la colonne:');
+            if (!columnName?.trim()) return;
+
+            if (!window.checklistTableData) {
+                window.checklistTableData = { colonnes: [], lignes: [] };
+            }
+
+            window.checklistTableData.colonnes.push(columnName.trim());
+            window.checklistTableData.lignes.forEach(row => row.push(''));
+            
+            renderChecklistTable();
+        }
+
+        function addTableRow() {
+            if (!window.checklistTableData || window.checklistTableData.colonnes.length === 0) {
+                showNotification('Ajoutez d\'abord des colonnes', 'warning');
+                return;
+            }
+
+            window.checklistTableData.lignes.push(new Array(window.checklistTableData.colonnes.length).fill(''));
+            renderChecklistTable();
+        }
+
+        function clearTable() {
+            window.checklistTableData = { colonnes: [], lignes: [] };
+            renderChecklistTable();
+        }
+
+        function renderChecklistTable() {
+            const container = document.getElementById('checklistTable');
+            
+            if (!window.checklistTableData || window.checklistTableData.colonnes.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-3">Aucun tableau. Cliquez sur "Ajouter colonne" pour commencer.</p>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-dark table-bordered">
+                        <thead>
+                            <tr>
+                                ${window.checklistTableData.colonnes.map((col, index) => `
+                                    <th>
+                                        <input type="text" class="form-control form-control-sm bg-transparent border-0 text-center fw-bold" 
+                                               value="${col}" onchange="updateColumnName(${index}, this.value)">
+                                    </th>
+                                `).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${window.checklistTableData.lignes.map((row, rowIndex) => `
+                                <tr>
+                                    ${row.map((cell, cellIndex) => `
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm bg-transparent border-0" 
+                                                   value="${cell}" onchange="updateCellValue(${rowIndex}, ${cellIndex}, this.value)">
+                                        </td>
+                                    `).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function updateColumnName(index, value) {
+            if (window.checklistTableData) {
+                window.checklistTableData.colonnes[index] = value;
+            }
+        }
+
+        function updateCellValue(rowIndex, cellIndex, value) {
+            if (window.checklistTableData) {
+                window.checklistTableData.lignes[rowIndex][cellIndex] = value;
+            }
+        }
+
+        function saveChecklist() {
+            const form = document.getElementById('checklistForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const itemId = document.getElementById('checklistId').value;
+            const isEdit = itemId !== '';
+
+            const itemData = {
+                titre: document.getElementById('checklistTitre').value.trim(),
+                categorie: document.getElementById('checklistCategorie').value,
+                contenu: document.getElementById('checklistContenu').value.trim(),
+                favori: document.getElementById('checklistFavori').checked,
+                complete: document.getElementById('checklistComplete').checked,
+                pharmacie: document.getElementById('checklistPharmacie').value,
+                images: window.tempChecklistImages || [],
+                tableau: window.checklistTableData || { colonnes: [], lignes: [] }
+            };
+
+            if (isEdit) {
+                const index = data.checklistItems.findIndex(i => i.id === itemId);
+                if (index !== -1) {
+                    data.checklistItems[index] = { ...data.checklistItems[index], ...itemData };
+                }
+            } else {
+                const newItem = {
+                    id: Date.now().toString(),
+                    dateCreation: new Date().toISOString(),
+                    ...itemData
+                };
+                data.checklistItems.push(newItem);
+            }
+
+            saveData();
+            updateStats();
+            filterChecklist();
+            
+            bootstrap.Modal.getInstance(document.getElementById('checklistModal')).hide();
+            showNotification(isEdit ? 'Checklist modifiée' : 'Checklist ajoutée');
+            
+            // Clean up temporary data
+            window.tempChecklistImages = null;
+            window.checklistTableData = null;
+        }
+
+        function editChecklistItem(itemId) {
+            openChecklistModal(itemId);
+        }
+
+        function toggleChecklistComplete(itemId) {
+            const item = data.checklistItems.find(i => i.id === itemId);
+            if (!item) return;
+
+            item.complete = !item.complete;
+            saveData();
+            updateStats();
+            filterChecklist();
+            showNotification(`Tâche ${item.complete ? 'complétée' : 'remise en cours'}`);
+        }
+
+        function deleteChecklistItem(itemId) {
+            const item = data.checklistItems.find(i => i.id === itemId);
+            if (!item) return;
+
+            if (confirm('Êtes-vous sûr de vouloir supprimer cette note checklist ?')) {
+                data.checklistItems = data.checklistItems.filter(i => i.id !== itemId);
+                saveData();
+                updateStats();
+                filterChecklist();
+                showNotification('Note checklist supprimée');
+            }
+        }
+
+        // Load settings page
+        function loadSettings() {
+            document.getElementById('autoSaveToggle').checked = data.settings.autoSave;
+            document.getElementById('notificationsToggle').checked = data.settings.notifications;
+            updateStats();
+        }
+
+        // Settings functions
+        function exportData() {
+            const exportData = {
+                pharmacies: data.pharmacies,
+                contacts: data.contacts,
+                notes: data.notes,
+                messages: data.messages,
+                checklistItems: data.checklistItems,
+                settings: data.settings,
+                currentPharmacy: currentPharmacy
+            };
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `pharmaboard_backup_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            showNotification('Données exportées avec succès');
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+                        if (confirm('Êtes-vous sûr de vouloir importer ces données ? Cela remplacera toutes les données actuelles.')) {
+                            // Update data
+                            data.pharmacies = importedData.pharmacies || [];
+                            data.contacts = importedData.contacts || [];
+                            data.notes = importedData.notes || [];
+                            data.messages = importedData.messages || [];
+                            data.checklistItems = importedData.checklistItems || [];
+                            data.settings = { ...data.settings, ...importedData.settings };
+                            currentPharmacy = importedData.currentPharmacy || '';
+                            
+                            saveData();
+                            updateStats();
+                            updatePharmacySelectors();
+                            showNotification('Données importées avec succès');
+                            
+                            // Refresh current page
+                            setTimeout(() => location.reload(), 1000);
+                        }
+                    } catch (error) {
+                        showNotification('Erreur lors de l\'importation : fichier invalide', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function clearAllData() {
+            if (confirm('Êtes-vous sûr de vouloir effacer toutes les données ? Cette action est irréversible.')) {
+                if (confirm('Dernière confirmation : toutes vos données seront perdues !')) {
+                    localStorage.clear();
+                    showNotification('Toutes les données ont été effacées');
+                    setTimeout(() => location.reload(), 1000);
+                }
+            }
+        }
+
+        // Notification system
+        function showNotification(message, type = 'success') {
+            if (!data.settings.notifications) return;
+
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>${message}</span>
+                    <button type="button" class="btn-close btn-close-white ms-3" onclick="this.parentElement.parentElement.remove()"></button>
+                </div>
+            `;
+
+            document.getElementById('notificationContainer').appendChild(notification);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+
+        // Initialize table data for checklist
+        window.checklistTableData = { colonnes: [], lignes: [] };
+    </script>
+</body>
+</html>
