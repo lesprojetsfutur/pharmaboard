@@ -422,7 +422,7 @@
                 </div>
                 <div>
                     <h4 class="mb-0">PharmaBoard+</h4>
-                    <small class="text-muted">v2.0 Fixed</small>
+                    <small class="text-muted">v2.0 Delete Fixed</small>
                 </div>
             </div>
 
@@ -964,7 +964,7 @@
                             <div class="border-top pt-3">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <small class="text-muted"><strong>Version :</strong> PharmaBoard+ v2.0 Fixed</small>
+                                        <small class="text-muted"><strong>Version :</strong> PharmaBoard+ v2.0 Delete Fixed</small>
                                     </div>
                                     <div class="col-md-6 text-md-end">
                                         <small class="text-muted"><strong>Dernière sauvegarde :</strong> <span id="lastSave"></span></small>
@@ -1383,19 +1383,7 @@
         function saveDataSafely(type, data) {
             isUpdating = true;
             try {
-                // Vérifier si les données existent déjà
-                const existingData = getData(type);
-                
-                // Fusionner les données au lieu de les écraser
-                let finalData = data;
-                if (type === 'checklist_items' && existingData.length > 0) {
-                    // Pour les checklist items, fusionner intelligemment
-                    const existingIds = existingData.map(item => item.id);
-                    const newItems = data.filter(item => !existingIds.includes(item.id));
-                    finalData = [...existingData, ...newItems];
-                }
-                
-                localStorage.setItem(`pharmaboard_${type}`, JSON.stringify(finalData));
+                localStorage.setItem(`pharmaboard_${type}`, JSON.stringify(data));
                 lastDataHash = generateDataHash();
             } catch (error) {
                 console.error('Erreur lors de la sauvegarde:', error);
@@ -2730,7 +2718,7 @@
             }
         }
 
-        // Checklist management - FONCTION MODIFIÉE POUR ÉVITER L'ÉCRASEMENT
+        // Checklist management - FONCTION CORRIGÉE POUR LA SUPPRESSION
         function openChecklistModal(item = null) {
             editingChecklistId = item ? item.id : null;
             const modal = new bootstrap.Modal(document.getElementById('checklistModal'));
@@ -2850,7 +2838,7 @@
             // Body
             html += '<tbody>';
             tableData.lignes.forEach((row, rowIndex) => {
-                html += '<tr>';
+                html +=  '<tr>';
                 row.forEach((cell, cellIndex) => {
                     html += `<td><input type="text" class="form-control bg-transparent border-0 text-white" value="${cell}" onchange="updateCellValue(${rowIndex}, ${cellIndex}, this.value)"></td>`;
                 });
@@ -2870,7 +2858,7 @@
             tableData.lignes[rowIndex][cellIndex] = value;
         }
 
-        // FONCTION DE SAUVEGARDE SÉCURISÉE POUR CHECKLIST
+        // FONCTION DE SAUVEGARDE CORRIGÉE POUR CHECKLIST
         function saveChecklist() {
             const form = document.getElementById('checklistForm');
             if (!form.checkValidity()) {
@@ -2889,27 +2877,25 @@
                 pharmacie: document.getElementById('checklistPharmacie').value,
             };
             
-            // RÉCUPÉRATION SÉCURISÉE DES DONNÉES EXISTANTES
-            const existingItems = getData('checklist_items');
+            const checklistItems = getData('checklist_items');
             
             if (editingChecklistId) {
-                // Update existing item - FUSION INTELLIGENTE
-                const index = existingItems.findIndex(c => c.id === editingChecklistId);
+                // Update existing item
+                const index = checklistItems.findIndex(c => c.id === editingChecklistId);
                 if (index !== -1) {
-                    existingItems[index] = { ...existingItems[index], ...checklistData };
-                    setData('checklist_items', existingItems);
+                    checklistItems[index] = { ...checklistItems[index], ...checklistData };
                 }
             } else {
-                // Add new item - AJOUT SÉCURISÉ
+                // Add new item
                 const newItem = {
                     ...checklistData,
                     id: Date.now().toString(),
                     dateCreation: new Date().toISOString(),
                 };
-                const updatedItems = [...existingItems, newItem];
-                setData('checklist_items', updatedItems);
+                checklistItems.push(newItem);
             }
             
+            setData('checklist_items', checklistItems);
             bootstrap.Modal.getInstance(document.getElementById('checklistModal')).hide();
             showNotification(editingChecklistId ? 'Checklist modifiée' : 'Checklist ajoutée');
             
@@ -3119,14 +3105,40 @@
             }
         }
 
+        // FONCTION DE SUPPRESSION CORRIGÉE
         function deleteChecklistItem(id) {
+            console.log('Tentative de suppression de l\'item:', id); // Debug
+            
             const checklistItems = getData('checklist_items');
             const item = checklistItems.find(c => c.id === id);
+            
+            console.log('Item trouvé:', item); // Debug
+            console.log('Nombre d\'items avant suppression:', checklistItems.length); // Debug
+            
             if (item && confirm('Êtes-vous sûr de vouloir supprimer cette note checklist ?')) {
+                // SUPPRESSION DIRECTE ET IMMÉDIATE
                 const updatedItems = checklistItems.filter(c => c.id !== id);
-                setData('checklist_items', updatedItems);
-                showNotification('Note checklist supprimée');
-                if (currentPage === 'checklist') loadChecklist();
+                
+                console.log('Nombre d\'items après filtrage:', updatedItems.length); // Debug
+                
+                // Sauvegarde immédiate
+                localStorage.setItem('pharmaboard_checklist_items', JSON.stringify(updatedItems));
+                
+                // Vérification de la sauvegarde
+                const verifyItems = JSON.parse(localStorage.getItem('pharmaboard_checklist_items') || '[]');
+                console.log('Vérification - nombre d\'items sauvés:', verifyItems.length); // Debug
+                
+                showNotification('Note checklist supprimée avec succès');
+                
+                // Rechargement immédiat de la page checklist
+                if (currentPage === 'checklist') {
+                    setTimeout(() => {
+                        loadChecklist();
+                        updateDashboard();
+                    }, 100);
+                }
+                
+                // Mise à jour du dashboard
                 updateDashboard();
             }
         }
